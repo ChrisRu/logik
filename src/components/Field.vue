@@ -2,7 +2,6 @@
 	<svg viewBox="0 0 1080 720" class="field">
 		<!--DRAWING LINE-->
 		<path
-			v-if="drawingLine.end !== null && drawingLine.start !== null"
 			stroke="#fff"
 			fill="none"
 			stroke-width="4"
@@ -10,22 +9,24 @@
 			stroke-linecap="round"
 			stroke-linejoin="round"
 			:d="calculatePath(drawingLine.start, drawingLine.end)"
+			v-if="drawingLine.end !== null && drawingLine.start !== null"
 		/>
 
 		<!--CONNECTIONS-->
-		<!-- <path
+		<path
 			fill="none"
-			:stroke="false ? 'red' : '#888'"
 			stroke-width="4"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:d="calculatepath(getlocation(connection.from), getlocation(connection.to))"
-			v-for="connection in connections"
-		/> -->
+			:stroke="status.on.includes(connection) ? '#d33' : '#888'"
+			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
+			:key="i"
+			v-for="(connection, i) in connections"
+		/>
 
 		<!--LEFT SIDE OUTPUTS-->
 		<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-		<g :key="output ? 1 : 0 + i.toString()" v-for="(output, i) in outputs">
+		<g :key="i" v-for="(output, i) in outputs">
 			<rect
 				x="46"
 				:y="360 - 8 + 60 * (i - (outputs.length - (outputs.length % 2)) / 2) - 2"
@@ -34,25 +35,25 @@
 				fill="#444"
 			/>
 			<circle
-				class="draggable output"
+				class="draggable global-output pin"
 				r="8"
 				cx="80"
 				fill="#444"
-				@mousedown="draw($event, { type: 'output', index: i })"
-				@mouseup="enddraw($event, { type: 'output', index: i })"
+				@mousedown="draw($event, { type: 'global-output', index: i })"
+				@mouseup="enddraw($event, { type: 'global-output', index: i })"
 				:cy="360 - 8 + 60 * (i - outputs.length / 2)"
 			/>
 			<circle
 				class="toggleable"
 				r="16"
 				cx="32"
-				:fill="output ? '#e03b3b' : '#888'"
+				:fill="output.state ? '#e03b3b' : '#888'"
 				:cy="360 - 8 + 60 * (i - outputs.length / 2)"
-				@click="outputs[i] = !output"
+				@click="outputs[i].state = !output.state"
 			/>
 		</g>
 
-		<!--components-->
+		<!--COMPONENTS-->
 		<g :key="component.name + i" v-for="(component, i) in components" class="component">
 			<rect
 				class="draggable"
@@ -69,8 +70,8 @@
 				:cy="component.y + component.height - 20 * (i - (component.operator.length - 1) / 2)"
 				r="8"
 				fill="#444"
-				@mousedown="draw($event, { type: 'input', content: component })"
-				@mouseup="enddraw($event, { type: 'input', content: component })"
+				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
+				@mouseup="enddraw($event, { type: 'input', content: component, index: i - 1 })"
 				:key="i"
 				v-for="i in component.operator.length"
 			/>
@@ -124,14 +125,27 @@
 					height="4"
 					fill="#444"
 				/>
-				<circle r="16" cx="1048" fill="#888" :cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)" />
 				<circle
-					class="draggable input"
+					:fill="
+						status.on
+							.map((x) => x.from)
+							.includes(
+								connections.find((x) => x.to.type === 'global-input' && x.to.index === i - 1)?.from,
+							)
+							? '#e03b3b'
+							: '#888'
+					"
+					r="16"
+					cx="1048"
+					:cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)"
+				/>
+				<circle
+					class="draggable global-input pin"
 					r="8"
 					cx="1000"
 					fill="#444"
-					@mousedown="draw($event, { type: 'input', index: i - 1 })"
-					@mouseup="enddraw($event, { type: 'input', index: i - 1 })"
+					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
+					@mouseup="enddraw($event, { type: 'global-input', index: i - 1 })"
 					:cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)"
 				/>
 			</g>
@@ -150,8 +164,6 @@ interface IPoint {
 }
 
 interface IComponent extends IPoint {
-	outputPins: IPin[],
-	inputPins: IPin[]
 	operator: IOperator
 	color: string
 	name: string
@@ -160,7 +172,7 @@ interface IComponent extends IPoint {
 }
 
 interface IPin {
-	type: "input" | "output"
+	type: "input" | "output" | "global-input" | "global-output"
 	content?: IComponent
 	index: number
 }
@@ -174,17 +186,20 @@ function getCircleCenter(element: Element, offset: number) {
 	const cx = Number(element.getAttribute("cx") || 0)
 	const cy = Number(element.getAttribute("cy") || 0)
 	const r = Number(element.getAttribute("r") || 0)
-	return {
-		x: cx + r / 2 - offset,
-		y: cy + r / 2 - offset,
-	}
+	const x = cx + r / 2 - offset
+	const y = cy + r / 2 - offset
+
+	return { x, y }
 }
 
 export default defineComponent({
 	name: "Field",
 	setup: () => {
 		const inputs = ref(1)
-		const outputs = ref([true, false])
+		const outputs = ref<{ state: boolean; outputPins: IPin[] }[]>([
+			{ state: true, outputPins: [] },
+			{ state: false, outputPins: [] },
+		])
 
 		const drawingLine = ref<{
 			pin: IPin | null
@@ -198,8 +213,15 @@ export default defineComponent({
 
 		const components = ref<IComponent[]>([
 			{
-				inputPins: [],
-				outputPins: [],
+				name: "AND",
+				operator: AND,
+				color: "#feb953",
+				x: 100,
+				y: 100,
+				height: 40,
+				width: 70,
+			},
+			{
 				name: "OR",
 				operator: OR,
 				color: "#953feb",
@@ -209,8 +231,6 @@ export default defineComponent({
 				width: 80,
 			},
 			{
-				inputPins: [],
-				outputPins: [],
 				name: "INV",
 				operator: INV,
 				color: "#dc5fdc",
@@ -221,56 +241,56 @@ export default defineComponent({
 			},
 		])
 
-		// const connections = ref<{ from: IPin; to: IPin }[]>([])
+		const connections = ref<{ from: IPin; to: IPin }[]>([])
 
 		// setTimeout(() => {
-		// 	connections.value.push({
-		// 		from: {
-		// 			type: "output",
-		// 			index: 0,
+		// 	connections.value = [
+		// 		{
+		// 			from: {
+		// 				type: "global-output",
+		// 				index: 0,
+		// 			},
+		// 			to: {
+		// 				type: "input",
+		// 				content: components.value[0],
+		// 				index: 1,
+		// 			},
 		// 		},
-		// 		to: {
-		// 			type: "input",
-		// 			content: components.value[0],
-		// 			index: 1,
+		// 		{
+		// 			from: {
+		// 				type: "global-output",
+		// 				index: 1,
+		// 			},
+		// 			to: {
+		// 				type: "input",
+		// 				content: components.value[0],
+		// 				index: 0,
+		// 			},
 		// 		},
-		// 	})
-		// 	connections.value.push({
-		// 		from: {
-		// 			type: "output",
-		// 			index: 1,
+		// 		{
+		// 			from: {
+		// 				type: "output",
+		// 				content: components.value[0],
+		// 				index: 2,
+		// 			},
+		// 			to: {
+		// 				type: "input",
+		// 				content: components.value[1],
+		// 				index: 0,
+		// 			},
 		// 		},
-		// 		to: {
-		// 			type: "input",
-		// 			content: components.value[0],
-		// 			index: 0,
+		// 		{
+		// 			from: {
+		// 				type: "output",
+		// 				content: components.value[1],
+		// 				index: 1,
+		// 			},
+		// 			to: {
+		// 				type: "global-input",
+		// 				index: 0,
+		// 			},
 		// 		},
-		// 	})
-
-		// 	connections.value.push({
-		// 		from: {
-		// 			type: "output",
-		// 			content: components.value[0],
-		// 			index: 2,
-		// 		},
-		// 		to: {
-		// 			type: "input",
-		// 			content: components.value[1],
-		// 			index: 0,
-		// 		},
-		// 	})
-
-		// 	connections.value.push({
-		// 		from: {
-		// 			type: "output",
-		// 			content: components.value[1],
-		// 			index: 1,
-		// 		},
-		// 		to: {
-		// 			type: "input",
-		// 			index: 0,
-		// 		},
-		// 	})
+		// 	]
 		// }, 0)
 
 		function draw(event: MouseEvent | TouchEvent, to: IPin) {
@@ -359,21 +379,21 @@ export default defineComponent({
 				toPin = tmp
 			}
 
-			// const existingIndex = connections.value.findIndex(
-			// 	(x) => deepEqual(x.from, fromPin) && deepEqual(x.to, toPin),
-			// )
-			// if (existingIndex === -1) {
-			// 	connections.value = [...connections.value, { from: fromPin, to: toPin }]
+			const existingIndex = connections.value.findIndex(
+				(x) => deepEqual(x.from, fromPin) && deepEqual(x.to, toPin),
+			)
+			if (existingIndex === -1) {
+				connections.value = [...connections.value, { from: fromPin, to: toPin }]
 
-			// 	const existingConnectionIndex = new Set(
-			// 		connections.value
-			// 			.map((x, i) => (deepEqual(x.to, toPin) ? i : undefined))
-			// 			.filter((x): x is number => x !== undefined),
-			// 	)
-			// 	connections.value = connections.value.filter((_, i) => existingConnectionIndex.has(i))
-			// } else {
-			// 	connections.value = connections.value.filter((_, i) => i !== existingIndex)
-			// }
+				// const existingConnectionIndex = new Set(
+				// 	connections.value
+				// 		.map((x, i) => (deepEqual(x.to, toPin) ? i : undefined))
+				// 		.filter((x): x is number => x !== undefined),
+				// )
+				// connections.value = connections.value.filter((_, i) => existingConnectionIndex.has(i))
+			} else {
+				connections.value = connections.value.filter((_, i) => i !== existingIndex)
+			}
 		}
 
 		function move(event: MouseEvent | TouchEvent, component: IComponent) {
@@ -439,8 +459,8 @@ export default defineComponent({
 		}
 
 		function getLocation(pin: IPin) {
-			if (!("content" in pin)) {
-				const element = document.querySelectorAll(`.field .${pin.type}`)[pin.index]
+			if (pin.type.startsWith("global")) {
+				const element = document.querySelectorAll(`.field .pin.${pin.type}`)[pin.index]
 				return getCircleCenter(element, 4)
 			}
 
@@ -452,73 +472,115 @@ export default defineComponent({
 			return getCircleCenter(element, 4)
 		}
 
-		function getConnections(location: IPin) {}
-
-		function isOn(location: IPin) {
-			// const turnon = []
-
-			// const queue = connections.value
-			// 	.filter((x) => x.from.type === "output")
-			// 	.map((x, i) => ({
-			// 		from: {
-			// 			...x.from,
-			// 			state: outputs.value[i],
-			// 		},
-			// 		to: x.to,
-			// 	}))
-			// while (queue.length) {
-			// 	const last = queue.pop()
-
-			// 	const state = last?.from.state
-
-			// 	turnon.push(last)
-			// }
-
-			return false
+		interface Graph {
+			inputPin: IPin
+			outputPins: Graph[]
 		}
 
-		// setTimeout(() => {
-		// 	const graph = []
+		const status = computed(() => {
+			const graph: Graph[] = []
 
-		// 	const queue = connections.value.filter((x) => x.from.type === "output")
-		// 	const had = new Set<typeof connections.value[0]>(queue)
+			const on = new Set<IPin>()
+			const off = new Set<IPin>()
 
-		// 	while (queue.length) {
-		// 		const current = queue.pop() as typeof connections.value[0]
+			const queue: IPin[] = [
+				...connections.value
+					.filter(({ from, to }) => from.type === "global-output")
+					.map((x) => x.from),
+			]
 
-		// 		graph.push({
-		// 			left: [current.from],
-		// 			right: [current.to],
-		// 		})
+			while (queue.length) {
+				const current = queue.shift() as typeof queue[0]
 
-		// 		const nextConnections = connections.value.filter(
-		// 			(next) =>
-		// 				!had.has(next) &&
-		// 				(next.from.type === "output"
-		// 					? deepEqual(next.from.content, current.to) ||
-		// 					  deepEqual(next.from.content, current.from)
-		// 					: false),
-		// 		)
-		// 		for (const nextConnection of nextConnections) {
-		// 			had.add(nextConnection)
-		// 			queue.push(nextConnection)
-		// 		}
-		// 	}
+				if (current.type === "global-output") {
+					const connection = connections.value.find((x) => x.from === current)
+					if (!connection) {
+						console.warn("no beginning connection")
+						continue
+					}
 
-		// 	console.log(graph)
-		// }, 100)
+					if (outputs.value[current.index].state) {
+						on.add(connection.from)
+					} else {
+						off.add(connection.from)
+					}
+
+					queue.push(connection.to)
+				} else if (current.type === "input") {
+					const relevantConnections = connections.value
+						.filter((x) => x.to.content === current.content)
+						.sort((a, b) => a.from.index - b.from.index)
+
+					if (relevantConnections.length !== current.content?.operator.length) {
+						console.warn("not enough connected")
+					}
+
+					let done = true
+					for (const connection of relevantConnections) {
+						if (!on.has(connection.from) && !off.has(connection.from)) {
+							done = false
+							queue.push(connection.from)
+						}
+					}
+					if (done === false) {
+						console.warn("not done yet")
+						continue
+					}
+
+					const params = relevantConnections.map((x) => on.has(x.from))
+					const status = current.content?.operator(...params)
+					if (status === undefined) {
+						console.error("fucked params")
+						continue
+					}
+
+					const connection = connections.value.find((x) => x.from.content === current.content)
+					if (!connection) {
+						console.warn("no output")
+						continue
+					}
+
+					if (status[0]) {
+						on.add(connection.from)
+					} else {
+						off.add(connection.from)
+					}
+
+					queue.push(connection.to)
+				} else if (current.type === "global-input") {
+					const connection = connections.value.find((x) => x.to === current)
+					if (!connection) {
+						console.warn("no connection to global input")
+						continue
+					}
+
+					const previous = on.has(connection.from) || off.has(connection.from)
+					if (!previous) {
+						queue.push(connection.from)
+					}
+				} else {
+					console.error("dunno what to do with this component")
+				}
+			}
+
+			return {
+				on: connections.value.filter((x) => on.has(x.from)),
+				off: connections.value.filter((x) => off.has(x.from)),
+			}
+		})
 
 		return {
 			inputs,
 			outputs,
 			components,
+			drawingLine,
+			connections,
 			move,
 			draw,
 			getLocation,
 			calculatePath,
 			enddraw,
-			drawingLine,
-			isOn,
+			status,
 		}
 	},
 })

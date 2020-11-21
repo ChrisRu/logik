@@ -23,6 +23,10 @@ body {
 	margin: 30px auto;
 	background: #212121;
 
+	.pin:hover {
+		fill: #888;
+	}
+
 	.toggleable {
 		&:hover,
 		&:active {
