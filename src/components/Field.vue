@@ -1,5 +1,5 @@
 <template>
-	<svg viewBox="0 0 1080 720" class="field">
+	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
 		<!--DRAWING LINE-->
 		<path
 			stroke="#fff"
@@ -21,6 +21,7 @@
 			:stroke="status.turnedOnConnections.has(connection) ? '#d33' : '#888'"
 			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
 			:key="i"
+			@mouseup.right="clearPinConnections(connection.to)"
 			v-for="(connection, i) in connections"
 		/>
 
@@ -40,7 +41,8 @@
 				cx="80"
 				fill="#444"
 				@mousedown="draw($event, { type: 'global-output', index: i })"
-				@mouseup="enddraw($event, { type: 'global-output', index: i })"
+				@mouseup="endDraw($event, { type: 'global-output', index: i })"
+				@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
 				:cy="360 - 8 + 60 * (i - outputs.length / 2)"
 			/>
 			<circle
@@ -68,17 +70,15 @@
 				class="draggable pin"
 				:cx="component.x"
 				:cy="
-					component.y +
-					component.height / 2 +
-					(i - 1 - component.operator.length / 2) * 8 * 2.5 +
-					10
+					component.y + component.height / 2 + (i - 1 - component.operatorInputs / 2) * 8 * 2.5 + 10
 				"
 				r="8"
 				fill="#444"
 				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
-				@mouseup="enddraw($event, { type: 'input', content: component, index: i - 1 })"
+				@mouseup="endDraw($event, { type: 'input', content: component, index: i - 1 })"
+				@mouseup.right="clearPinConnections({ type: 'input', content: component, index: i - 1 })"
 				:key="i"
-				v-for="i in component.operator.length"
+				v-for="i in component.operatorInputs"
 			/>
 			<circle
 				class="draggable pin"
@@ -86,29 +86,34 @@
 				:cy="
 					component.y +
 					component.height / 2 +
-					(i - 1 - component.operator(...Array(component.operator.length).fill(false)).length / 2) *
-						8 *
-						2.5 +
+					(i - 1 - component.operatorOutputs / 2) * 8 * 2.5 +
 					10
 				"
 				r="8"
 				fill="#444"
+				@mouseup.right="
+					clearPinConnections({
+						type: 'output',
+						content: component,
+						index: i - 1 + component.operatorInputs,
+					})
+				"
 				@mousedown="
 					draw($event, {
 						type: 'output',
 						content: component,
-						index: i - 1 + component.operator.length,
+						index: i - 1 + component.operatorInputs,
 					})
 				"
 				@mouseup="
-					enddraw($event, {
+					endDraw($event, {
 						type: 'output',
 						content: component,
-						index: i - 1 + component.operator.length,
+						index: i - 1 + component.operatorInputs,
 					})
 				"
 				:key="i"
-				v-for="i in component.operator(...Array(component.operator.length).fill(false)).length"
+				v-for="i in component.operatorOutputs"
 			/>
 			<text
 				:x="component.x + component.width / 2"
@@ -148,8 +153,9 @@
 					r="8"
 					cx="1000"
 					fill="#444"
+					@mouseup.right="clearPinConnections({ type: 'global-input', index: i - 1 })"
 					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
-					@mouseup="enddraw($event, { type: 'global-input', index: i - 1 })"
+					@mouseup="endDraw($event, { type: 'global-input', index: i - 1 })"
 					:cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)"
 				/>
 			</g>
@@ -160,24 +166,44 @@
 <script lang="ts">
 import { ref, defineComponent, reactive, computed, watchEffect, toRefs } from "vue"
 import deepEqual from "fast-deep-equal"
-import { AND, INV, IOperator, NAND, OR, OS, OSF } from "../logic"
+import { AND, INV, IOperator, NAND, OR } from "../logic"
 
 interface IPoint {
 	x: number
 	y: number
 }
 
-interface IComponent extends IPoint {
+class Component implements IPoint {
+	operatorInputs: number
+	operatorOutputs: number
 	operator: IOperator
 	color: string
 	name: string
-	height: number
-	width: number
+	x: number
+	y: number
+
+	constructor(name: string, operator: IOperator, color: string, x?: number, y?: number) {
+		this.name = name
+		this.operator = operator
+		this.color = color
+		this.x = x || Math.random() * 900
+		this.y = y || Math.random() * 600
+		this.operatorInputs = operator.length
+		this.operatorOutputs = operator(...Array(this.operatorInputs).fill(false)).length
+	}
+
+	get height() {
+		return Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 40)
+	}
+
+	get width() {
+		return this.name.length * 20 + 10
+	}
 }
 
 interface IPin {
 	type: "input" | "output" | "global-input" | "global-output"
-	content?: IComponent
+	content?: Component
 	index: number
 }
 
@@ -194,30 +220,6 @@ function getCircleCenter(element: Element, offset: number) {
 	const y = cy + r / 2 - offset
 
 	return { x, y }
-}
-
-class Component implements IComponent {
-	operator: IOperator
-	color: string
-	name: string
-	x: number
-	y: number
-
-	constructor(name: string, operator: IOperator, color: string, x?: number, y?: number) {
-		this.name = name
-		this.operator = operator
-		this.color = color
-		this.x = x || Math.random() * 900
-		this.y = y || Math.random() * 600
-	}
-
-	get height() {
-		return Math.max(this.operator.length * 20, 40)
-	}
-
-	get width() {
-		return this.name.length * 20 + 10
-	}
 }
 
 export default defineComponent({
@@ -244,61 +246,9 @@ export default defineComponent({
 			new Component("NAND", NAND, "#69be53"),
 			new Component("OR", OR, "#953feb"),
 			new Component("INV", INV, "#dc5fdc"),
-			new Component("INV1", OS, "#dc5fdc", 200, 500),
-			new Component("INV3", OSF, "#dc5fdc", 300, 400),
 		])
 
 		const connections = ref<{ from: IPin; to: IPin }[]>([])
-
-		// setTimeout(() => {
-		// 	connections.value = [
-		// 		{
-		// 			from: {
-		// 				type: "global-output",
-		// 				index: 0,
-		// 			},
-		// 			to: {
-		// 				type: "input",
-		// 				content: components.value[0],
-		// 				index: 1,
-		// 			},
-		// 		},
-		// 		{
-		// 			from: {
-		// 				type: "global-output",
-		// 				index: 1,
-		// 			},
-		// 			to: {
-		// 				type: "input",
-		// 				content: components.value[0],
-		// 				index: 0,
-		// 			},
-		// 		},
-		// 		{
-		// 			from: {
-		// 				type: "output",
-		// 				content: components.value[0],
-		// 				index: 2,
-		// 			},
-		// 			to: {
-		// 				type: "input",
-		// 				content: components.value[1],
-		// 				index: 0,
-		// 			},
-		// 		},
-		// 		{
-		// 			from: {
-		// 				type: "output",
-		// 				content: components.value[1],
-		// 				index: 1,
-		// 			},
-		// 			to: {
-		// 				type: "global-input",
-		// 				index: 0,
-		// 			},
-		// 		},
-		// 	]
-		// }, 0)
 
 		function draw(event: MouseEvent | TouchEvent, to: IPin) {
 			const isTouchEvent = event.type === "touchstart"
@@ -362,7 +312,17 @@ export default defineComponent({
 			root.addEventListener(stopEvent, stop)
 		}
 
-		function enddraw(event: MouseEvent | TouchEvent, toPin: IPin) {
+		function clearPinConnections(pin: IPin) {
+			const pinConnections = connections.value.map(({ from, to }, i) => {
+				if (deepEqual(from, pin) || deepEqual(to, pin)) {
+					return i
+				}
+			})
+
+			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
+		}
+
+		function endDraw(event: MouseEvent | TouchEvent, toPin: IPin) {
 			let { pin: fromPin } = drawingLine.value
 			if (!fromPin) {
 				return
@@ -379,31 +339,32 @@ export default defineComponent({
 				return
 			}
 
-			// swap to correct order
+			// Swap to correct order
 			if (fromPin.type.endsWith("input")) {
 				const tmp = fromPin
 				fromPin = toPin
 				toPin = tmp
 			}
 
-			const existingIndex = connections.value.findIndex(
-				(x) => deepEqual(x.from, fromPin) && deepEqual(x.to, toPin),
+			const sameConnectionIndex = connections.value.findIndex(
+				({ from, to }) => deepEqual(from, fromPin) && deepEqual(to, toPin),
 			)
-			if (existingIndex === -1) {
-				connections.value = [...connections.value, { from: fromPin, to: toPin }]
-
-				// const existingConnectionIndex = new Set(
-				// 	connections.value
-				// 		.map((x, i) => (deepEqual(x.to, toPin) ? i : undefined))
-				// 		.filter((x): x is number => x !== undefined),
-				// )
-				// connections.value = connections.value.filter((_, i) => existingConnectionIndex.has(i))
+			if (sameConnectionIndex > -1) {
+				// Existing connection found, remove it
+				connections.value = connections.value.filter((_, i) => i !== sameConnectionIndex)
 			} else {
-				connections.value = connections.value.filter((_, i) => i !== existingIndex)
+				// Check for existing connection to input pin found, remove if found
+				const existingInputPinIndex = connections.value.findIndex(({ to }) => deepEqual(to, toPin))
+				if (existingInputPinIndex > -1) {
+					connections.value = connections.value.filter((_, i) => i !== existingInputPinIndex)
+				}
+
+				// Add new connection
+				connections.value = [...connections.value, { from: fromPin, to: toPin }]
 			}
 		}
 
-		function move(event: MouseEvent | TouchEvent, component: IComponent) {
+		function move(event: MouseEvent | TouchEvent, component: Component) {
 			const isTouchEvent = event.type === "touchstart"
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget?.closest("svg") : null
@@ -523,7 +484,7 @@ export default defineComponent({
 					const parameterConnections = connections.value.filter(
 						({ to }) => to.content === current.content,
 					)
-					if (parameterConnections.length !== current.content?.operator.length) {
+					if (parameterConnections.length !== current.content?.operatorInputs) {
 						console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
 						continue
 					}
@@ -539,7 +500,7 @@ export default defineComponent({
 
 					for (const { from, to } of connections.value) {
 						if (from.content === current.content) {
-							const statusIndex = from.index - current.content.operator.length
+							const statusIndex = from.index - current.content.operatorInputs
 							if (status[statusIndex]) {
 								on.add(from)
 							} else {
@@ -582,7 +543,8 @@ export default defineComponent({
 			draw,
 			getLocation,
 			calculatePath,
-			enddraw,
+			endDraw,
+			clearPinConnections,
 			status,
 		}
 	},
