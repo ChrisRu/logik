@@ -579,3 +579,42 @@ export default defineComponent({
 	},
 })
 </script>
+
+<style lang="scss" scoped>
+.field {
+	display: block;
+	box-sizing: border-box;
+	width: 90vw;
+	margin: 30px auto;
+	background: #212121;
+
+	.pin:hover {
+		fill: #888;
+	}
+
+	.toggleable {
+		&:hover,
+		&:active {
+			cursor: pointer;
+		}
+	}
+
+	.draggable {
+		&:hover {
+			cursor: grab;
+		}
+		&:active {
+			cursor: grabbing;
+		}
+	}
+
+	text {
+		font-family: "Prompt", sans-serif, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+		fill: white;
+		font-weight: 500;
+		letter-spacing: 0.3px;
+		text-transform: uppercase;
+		pointer-events: none;
+	}
+}
+</style>
