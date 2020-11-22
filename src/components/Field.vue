@@ -18,7 +18,7 @@
 			stroke-width="4"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:stroke="status.on.includes(connection) ? '#d33' : '#888'"
+			:stroke="status.turnedOnConnections.has(connection) ? '#d33' : '#888'"
 			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
 			:key="i"
 			v-for="(connection, i) in connections"
@@ -127,11 +127,9 @@
 				/>
 				<circle
 					:fill="
-						status.on
-							.map((x) => x.from)
-							.includes(
-								connections.find((x) => x.to.type === 'global-input' && x.to.index === i - 1)?.from,
-							)
+						status.turnedOnPins.has(
+							connections.find((x) => x.to.type === 'global-input' && x.to.index === i - 1)?.from,
+						)
 							? '#e03b3b'
 							: '#888'
 					"
@@ -483,89 +481,85 @@ export default defineComponent({
 			const on = new Set<IPin>()
 			const off = new Set<IPin>()
 
-			const queue: IPin[] = [
-				...connections.value
-					.filter(({ from, to }) => from.type === "global-output")
-					.map((x) => x.from),
-			]
+			const queue: IPin[] = connections.value
+				.filter(({ from, to }) => from.type === "global-output")
+				.map((x) => x.from)
 
 			while (queue.length) {
 				const current = queue.shift() as typeof queue[0]
 
 				if (current.type === "global-output") {
-					const connection = connections.value.find((x) => x.from === current)
-					if (!connection) {
-						console.warn("no beginning connection")
-						continue
-					}
+					for (const { from, to } of connections.value) {
+						if (from === current) {
+							queue.push(to)
 
-					if (outputs.value[current.index].state) {
-						on.add(connection.from)
-					} else {
-						off.add(connection.from)
-					}
-
-					queue.push(connection.to)
-				} else if (current.type === "input") {
-					const relevantConnections = connections.value
-						.filter((x) => x.to.content === current.content)
-						.sort((a, b) => a.from.index - b.from.index)
-
-					if (relevantConnections.length !== current.content?.operator.length) {
-						console.warn("not enough connected")
-					}
-
-					let done = true
-					for (const connection of relevantConnections) {
-						if (!on.has(connection.from) && !off.has(connection.from)) {
-							done = false
-							queue.push(connection.from)
+							if (outputs.value[current.index].state) {
+								on.add(from)
+							} else {
+								off.add(from)
+							}
 						}
 					}
-					if (done === false) {
-						console.warn("not done yet")
-						continue
-					}
-
-					const params = relevantConnections.map((x) => on.has(x.from))
-					const status = current.content?.operator(...params)
-					if (status === undefined) {
-						console.error("fucked params")
-						continue
-					}
-
-					const connection = connections.value.find((x) => x.from.content === current.content)
-					if (!connection) {
-						console.warn("no output")
-						continue
-					}
-
-					if (status[0]) {
-						on.add(connection.from)
-					} else {
-						off.add(connection.from)
-					}
-
-					queue.push(connection.to)
 				} else if (current.type === "global-input") {
-					const connection = connections.value.find((x) => x.to === current)
-					if (!connection) {
-						console.warn("no connection to global input")
+					for (const { from, to } of connections.value) {
+						if (to === current && !on.has(from) && !off.has(from)) {
+							queue.push(from)
+						}
+					}
+				} else if (current.type === "input") {
+					if (current.content?.operator === undefined) {
+						throw new Error("Operator is not defined for component")
+					}
+
+					const parameterConnections = connections.value.filter(
+						({ to }) => to.content === current.content,
+					)
+					if (parameterConnections.length !== current.content?.operator.length) {
+						console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
 						continue
 					}
 
-					const previous = on.has(connection.from) || off.has(connection.from)
-					if (!previous) {
-						queue.push(connection.from)
+					const params = parameterConnections
+						.sort((a, b) => a.from.index - b.from.index)
+						.map(({ from }) => (on.has(from) ? true : off.has(from) ? false : undefined))
+					if (params.includes(undefined)) {
+						console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
+						continue
+					}
+					const status = current.content?.operator(...(params as boolean[]))
+
+					for (const { from, to } of connections.value) {
+						if (from.content === current.content) {
+							const statusIndex = from.index - current.content.operator.length
+							if (status[statusIndex]) {
+								on.add(from)
+							} else {
+								off.add(from)
+							}
+
+							queue.push(to)
+						}
+					}
+				} else if (current.type === "output") {
+					if (!current.content) {
+						throw new Error("Broken component, has no content")
+					}
+
+					for (const { from, to } of connections.value) {
+						if (to.content === current.content) {
+							queue.push(from)
+						}
 					}
 				} else {
-					console.error("dunno what to do with this component")
+					throw new Error(`Unknown component type ${current.type}`)
 				}
 			}
 
+			const turnedOnConnections = connections.value.filter(({ from }) => on.has(from))
+
 			return {
-				on: connections.value.filter((x) => on.has(x.from)),
-				off: connections.value.filter((x) => off.has(x.from)),
+				turnedOnConnections: new Set(turnedOnConnections),
+				turnedOnPins: new Set(turnedOnConnections.map(({ from }) => from)),
 			}
 		})
 
