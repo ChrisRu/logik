@@ -2,7 +2,7 @@
 	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
 		<!--DRAWING LINE-->
 		<path
-			stroke="#fff"
+			class="inactive-stroke"
 			fill="none"
 			stroke-width="4"
 			stroke-dasharray="10 10"
@@ -18,7 +18,7 @@
 			stroke-width="4"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:stroke="status.turnedOnConnections.has(connection) ? '#d33' : '#888'"
+			:class="status.turnedOnConnections.has(connection) ? 'active-stroke' : 'inactive-stroke'"
 			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
 			:key="i"
 			@mouseup.right="clearPinConnections(connection.to)"
@@ -26,33 +26,56 @@
 		/>
 
 		<!--LEFT SIDE OUTPUTS-->
-		<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-		<g :key="i" v-for="(output, i) in outputs">
-			<rect
-				x="46"
-				:y="360 - 8 + 60 * (i - (outputs.length - (outputs.length % 2)) / 2) - 2"
-				width="32"
-				height="4"
-				fill="#444"
-			/>
-			<circle
-				class="draggable global-output pin"
-				r="8"
-				cx="80"
-				fill="#444"
-				@mousedown="draw($event, { type: 'global-output', index: i })"
-				@mouseup="endDraw($event, { type: 'global-output', index: i })"
-				@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
-				:cy="360 - 8 + 60 * (i - outputs.length / 2)"
-			/>
-			<circle
-				class="toggleable"
-				r="16"
-				cx="32"
-				:fill="output.state ? '#e03b3b' : '#888'"
-				:cy="360 - 8 + 60 * (i - outputs.length / 2)"
-				@click="outputs[i].state = !output.state"
-			/>
+		<g class="sidebar sidebar-left">
+			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
+			<g :key="`${i}-${outputs.length}`" v-for="(output, i) in outputs">
+				<rect
+					x="46"
+					:y="360 - 2 + (i - outputs.length / 2 + 0.5) * 80"
+					width="32"
+					height="4"
+					class="pin-arrow"
+				/>
+				<circle
+					class="draggable global-output pin"
+					r="8"
+					cx="80"
+					@mousedown="draw($event, { type: 'global-output', index: i })"
+					@mouseup="endDraw({ type: 'global-output', index: i })"
+					@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
+					:cy="360 + (i - outputs.length / 2 + 0.5) * 80"
+				/>
+				<circle
+					:class="`toggleable ${output ? 'active' : 'inactive'}-bg`"
+					r="16"
+					cx="32"
+					:cy="360 + (i - outputs.length / 2 + 0.5) * 80"
+					@click="outputs[i] = !output"
+					@mouseup.right="removeOutput({ type: 'global-output', index: i })"
+				/>
+			</g>
+
+			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addOutput">
+				<circle r="16" class="disabled-bg" cx="32" :cy="720 - 32" />
+				<line
+					:x1="32"
+					:y1="720 - 32 - 8"
+					:x2="32"
+					:y2="720 - 32 + 8"
+					class="inactive-stroke"
+					stroke-linecap="round"
+					stroke-width="3"
+				/>
+				<line
+					:x1="32 - 8"
+					:y1="720 - 32"
+					:x2="32 + 8"
+					:y2="720 - 32"
+					class="inactive-stroke"
+					stroke-linecap="round"
+					stroke-width="3"
+				/>
+			</g>
 		</g>
 
 		<!--COMPONENTS-->
@@ -73,9 +96,8 @@
 					component.y + component.height / 2 + (i - 1 - component.operatorInputs / 2) * 8 * 2.5 + 10
 				"
 				r="8"
-				fill="#444"
 				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
-				@mouseup="endDraw($event, { type: 'input', content: component, index: i - 1 })"
+				@mouseup="endDraw({ type: 'input', content: component, index: i - 1 })"
 				@mouseup.right="clearPinConnections({ type: 'input', content: component, index: i - 1 })"
 				:key="i"
 				v-for="i in component.operatorInputs"
@@ -90,7 +112,6 @@
 					10
 				"
 				r="8"
-				fill="#444"
 				@mouseup.right="
 					clearPinConnections({
 						type: 'output',
@@ -106,7 +127,7 @@
 					})
 				"
 				@mouseup="
-					endDraw($event, {
+					endDraw({
 						type: 'output',
 						content: component,
 						index: i - 1 + component.operatorInputs,
@@ -126,37 +147,61 @@
 		</g>
 
 		<!--RIGHT SIDE INPUTS-->
-		<g>
+		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g :key="i" v-for="i in inputs">
+			<g
+				:key="i"
+				v-for="i in inputs"
+				@mouseup.right="removeInput({ type: 'global-input', index: i - 1 })"
+			>
 				<rect
+					class="pin-arrow"
 					x="1000"
-					:y="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2) - 2"
+					:y="360 - 2 + (i - 1 - inputs / 2 + 0.5) * 80"
 					width="32"
 					height="4"
-					fill="#444"
 				/>
 				<circle
-					:fill="
+					:class="
 						status.turnedOnPins.has(
-							connections.find((x) => x.to.type === 'global-input' && x.to.index === i - 1)?.from,
+							connections.find(({to}) => to.type === 'global-input' && to.index === i - 1)?.from,
 						)
-							? '#e03b3b'
-							: '#888'
+							? 'active-bg'
+							: 'inactive-bg'
 					"
 					r="16"
 					cx="1048"
-					:cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)"
+					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
 				/>
 				<circle
 					class="draggable global-input pin"
 					r="8"
 					cx="1000"
-					fill="#444"
 					@mouseup.right="clearPinConnections({ type: 'global-input', index: i - 1 })"
 					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
-					@mouseup="endDraw($event, { type: 'global-input', index: i - 1 })"
-					:cy="360 - 8 + (80 * (i - 1) - (inputs - 1) / 2)"
+					@mouseup="endDraw({ type: 'global-input', index: i - 1 })"
+					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
+				/>
+			</g>
+			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addInput">
+				<circle r="16" class="disabled-bg" cx="1048" cy="688" />
+				<line
+					x1="1048"
+					y1="680"
+					x2="1048"
+					y2="696"
+					class="inactive-stroke"
+					stroke-linecap="round"
+					stroke-width="3"
+				/>
+				<line
+					x1="1040"
+					y1="688"
+					x2="1056"
+					y2="688"
+					class="inactive-stroke"
+					stroke-linecap="round"
+					stroke-width="3"
 				/>
 			</g>
 		</g>
@@ -164,7 +209,7 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, reactive, computed, watchEffect, toRefs } from "vue"
+import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
 import { AND, INV, IOperator, NAND, OR } from "../logic"
 
@@ -213,6 +258,9 @@ function calculatePath(from: IPoint, to: IPoint) {
 }
 
 function getCircleCenter(element: Element, offset: number) {
+	if (!element) {
+		return { x: 0, y: 0 }
+	}
 	const cx = Number(element.getAttribute("cx") || 0)
 	const cy = Number(element.getAttribute("cy") || 0)
 	const r = Number(element.getAttribute("r") || 0)
@@ -226,10 +274,7 @@ export default defineComponent({
 	name: "Field",
 	setup: () => {
 		const inputs = ref(1)
-		const outputs = ref<{ state: boolean; outputPins: IPin[] }[]>([
-			{ state: true, outputPins: [] },
-			{ state: false, outputPins: [] },
-		])
+		const outputs = ref<boolean[]>([true, false, true])
 
 		const drawingLine = ref<{
 			pin: IPin | null
@@ -249,6 +294,34 @@ export default defineComponent({
 		])
 
 		const connections = ref<{ from: IPin; to: IPin }[]>([])
+
+		function addOutput() {
+			outputs.value = [...outputs.value, false]
+		}
+
+		function addInput() {
+			if (inputs.value < 6) {
+				inputs.value++
+			}
+		}
+
+		function removeInput(pin: IPin) {
+			clearPinConnections(pin)
+
+			if (inputs.value > 1) {
+				inputs.value--
+			}
+		}
+
+		function removeOutput(pin: IPin) {
+			clearPinConnections(pin)
+
+			outputs.value = outputs.value.filter((_, i) => i !== pin.index)
+
+			if (outputs.value.length === 0) {
+				outputs.value = [false]
+			}
+		}
 
 		function draw(event: MouseEvent | TouchEvent, to: IPin) {
 			const isTouchEvent = event.type === "touchstart"
@@ -322,7 +395,7 @@ export default defineComponent({
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
 		}
 
-		function endDraw(event: MouseEvent | TouchEvent, toPin: IPin) {
+		function endDraw(toPin: IPin) {
 			let { pin: fromPin } = drawingLine.value
 			if (!fromPin) {
 				return
@@ -440,19 +513,12 @@ export default defineComponent({
 			return getCircleCenter(element, 4)
 		}
 
-		interface Graph {
-			inputPin: IPin
-			outputPins: Graph[]
-		}
-
 		const status = computed(() => {
-			const graph: Graph[] = []
-
 			const on = new Set<IPin>()
 			const off = new Set<IPin>()
 
 			const queue: IPin[] = connections.value
-				.filter(({ from, to }) => from.type === "global-output")
+				.filter(({ from }) => from.type === "global-output")
 				.map((x) => x.from)
 
 			while (queue.length) {
@@ -463,7 +529,7 @@ export default defineComponent({
 						if (from === current) {
 							queue.push(to)
 
-							if (outputs.value[current.index].state) {
+							if (outputs.value[current.index]) {
 								on.add(from)
 							} else {
 								off.add(from)
@@ -546,47 +612,116 @@ export default defineComponent({
 			endDraw,
 			clearPinConnections,
 			status,
+			addOutput,
+			removeOutput,
+			addInput,
+			removeInput,
 		}
 	},
 })
 </script>
 
 <style lang="scss" scoped>
+$bg: #212121;
+$pin: #444;
+$off: #888;
+$on: #e03b3b;
+
 .field {
 	display: block;
 	box-sizing: border-box;
 	width: 90vw;
 	margin: 30px auto;
-	background: #212121;
+	background: $bg;
+}
 
-	.pin:hover {
-		fill: #888;
+.sidebar:hover {
+	.button-add {
+		opacity: 1;
+	}
+}
+
+.button-add {
+	transition: opacity 0.1s;
+	opacity: 0;
+
+	&.disabled {
+		visibility: hidden;
 	}
 
-	.toggleable {
-		&:hover,
-		&:active {
-			cursor: pointer;
-		}
-	}
+	&:not(.disabled) {
+		cursor: pointer;
 
-	.draggable {
 		&:hover {
-			cursor: grab;
-		}
-		&:active {
-			cursor: grabbing;
+			filter: brightness(150%);
 		}
 	}
+}
 
-	text {
-		font-family: "Prompt", sans-serif, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-		fill: white;
-		font-weight: 500;
-		letter-spacing: 0.3px;
-		padding-top: 2px;
-		text-transform: uppercase;
-		pointer-events: none;
+.disabled-bg {
+	fill: $pin;
+}
+
+.active-bg {
+	fill: $on;
+
+	&.toggleable:hover {
+		filter: grayscale(20%);
 	}
+}
+
+.active-stroke {
+	stroke: $on;
+}
+
+.inactive-bg {
+	fill: $off;
+
+	&.toggleable:hover {
+		filter: grayscale(70%);
+		fill: $on;
+	}
+}
+
+.inactive-stroke {
+	stroke: $off;
+}
+
+.pin-arrow {
+	fill: $pin;
+}
+
+.pin {
+	fill: $pin;
+
+	&:hover {
+		fill: $off;
+	}
+}
+
+.toggleable {
+	&:hover,
+	&:active {
+		cursor: pointer;
+	}
+}
+
+.draggable {
+	&:hover {
+		cursor: grab;
+	}
+	&:active {
+		cursor: grabbing;
+	}
+}
+
+text {
+	font-family: "Prompt", sans-serif, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	fill: white;
+	font-weight: 500;
+	letter-spacing: 0.3px;
+	padding-top: 2px;
+	text-transform: uppercase;
+	pointer-events: none;
 }
 </style>
