@@ -67,7 +67,12 @@
 			<circle
 				class="draggable pin"
 				:cx="component.x"
-				:cy="component.y + component.height - 20 * (i - (component.operator.length - 1) / 2)"
+				:cy="
+					component.y +
+					component.height / 2 +
+					(i - 1 - component.operator.length / 2) * 8 * 2.5 +
+					10
+				"
 				r="8"
 				fill="#444"
 				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
@@ -80,10 +85,11 @@
 				:cx="component.x + component.width"
 				:cy="
 					component.y +
-					component.height -
-					20 *
-						(i -
-							(component.operator(...Array(component.operator.length).fill(false)).length - 1) / 2)
+					component.height / 2 +
+					(i - 1 - component.operator(...Array(component.operator.length).fill(false)).length / 2) *
+						8 *
+						2.5 +
+					10
 				"
 				r="8"
 				fill="#444"
@@ -106,7 +112,7 @@
 			/>
 			<text
 				:x="component.x + component.width / 2"
-				:y="component.y + component.height / 2"
+				:y="component.y + component.height / 2 + 1"
 				dominant-baseline="middle"
 				text-anchor="middle"
 			>
@@ -154,7 +160,7 @@
 <script lang="ts">
 import { ref, defineComponent, reactive, computed, watchEffect, toRefs } from "vue"
 import deepEqual from "fast-deep-equal"
-import { AND, INV, IOperator, NAND, OR } from "../logic"
+import { AND, INV, IOperator, NAND, OR, OS, OSF } from "../logic"
 
 interface IPoint {
 	x: number
@@ -190,6 +196,30 @@ function getCircleCenter(element: Element, offset: number) {
 	return { x, y }
 }
 
+class Component implements IComponent {
+	operator: IOperator
+	color: string
+	name: string
+	x: number
+	y: number
+
+	constructor(name: string, operator: IOperator, color: string, x?: number, y?: number) {
+		this.name = name
+		this.operator = operator
+		this.color = color
+		this.x = x || Math.random() * 900
+		this.y = y || Math.random() * 600
+	}
+
+	get height() {
+		return Math.max(this.operator.length * 20, 40)
+	}
+
+	get width() {
+		return this.name.length * 20 + 10
+	}
+}
+
 export default defineComponent({
 	name: "Field",
 	setup: () => {
@@ -209,34 +239,13 @@ export default defineComponent({
 			end: null,
 		})
 
-		const components = ref<IComponent[]>([
-			{
-				name: "AND",
-				operator: AND,
-				color: "#feb953",
-				x: 100,
-				y: 100,
-				height: 40,
-				width: 70,
-			},
-			{
-				name: "OR",
-				operator: OR,
-				color: "#953feb",
-				x: 300,
-				y: 300,
-				height: 40,
-				width: 80,
-			},
-			{
-				name: "INV",
-				operator: INV,
-				color: "#dc5fdc",
-				x: 500,
-				y: 300,
-				height: 40,
-				width: 60,
-			},
+		const components = ref<Component[]>([
+			new Component("AND", AND, "#feb953"),
+			new Component("NAND", NAND, "#69be53"),
+			new Component("OR", OR, "#953feb"),
+			new Component("INV", INV, "#dc5fdc"),
+			new Component("INV1", OS, "#dc5fdc", 200, 500),
+			new Component("INV3", OSF, "#dc5fdc", 300, 400),
 		])
 
 		const connections = ref<{ from: IPin; to: IPin }[]>([])
@@ -613,6 +622,7 @@ export default defineComponent({
 		fill: white;
 		font-weight: 500;
 		letter-spacing: 0.3px;
+		padding-top: 2px;
 		text-transform: uppercase;
 		pointer-events: none;
 	}
