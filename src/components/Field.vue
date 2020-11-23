@@ -2,14 +2,14 @@
 	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
 		<!--DRAWING LINE-->
 		<path
-			class="inactive-stroke"
+			:class="drawingLineStatus ? 'active-stroke' : 'inactive-stroke'"
 			fill="none"
 			stroke-width="4"
 			stroke-dasharray="10 10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:d="calculatePath(getPinLocation(drawingLine.pin), drawingLine.end)"
-			v-if="drawingLine.end !== null && drawingLine.pin !== null"
+			:d="calculatePath(drawingLineStart, drawingLine.end)"
+			v-if="drawingLineStart !== null && drawingLine.end !== null"
 		/>
 
 		<!--CONNECTIONS-->
@@ -88,6 +88,8 @@
 				class="draggable"
 				:x="component.content.x"
 				:y="component.content.y"
+				rx="3"
+				ry="3"
 				:width="component.content.width"
 				:height="component.content.height"
 				:fill="component.content.color"
@@ -491,7 +493,7 @@ export default defineComponent({
 					y:
 						pin.content.y +
 						pin.content.height / 2 +
-						(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.5 +
+						(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.3 +
 						10,
 				}
 			} else if (pin.type === "input") {
@@ -504,7 +506,7 @@ export default defineComponent({
 					y:
 						pin.content.y +
 						pin.content.height / 2 +
-						(pin.index - pin.content.operatorInputs / 2) * 8 * 2.5 +
+						(pin.index - pin.content.operatorInputs / 2) * 8 * 2.3 +
 						10,
 				}
 			}
@@ -522,6 +524,9 @@ export default defineComponent({
 
 			while (queue.length) {
 				const current = queue.shift() as typeof queue[0]
+				if (on.has(current) || off.has(current)) {
+					continue
+				}
 
 				if (current.type === "global-output") {
 					for (const { from, to } of connections.value) {
@@ -537,7 +542,7 @@ export default defineComponent({
 					}
 				} else if (current.type === "global-input") {
 					for (const { from, to } of connections.value) {
-						if (to === current && !on.has(from) && !off.has(from)) {
+						if (to === current) {
 							queue.push(from)
 						}
 					}
@@ -594,7 +599,7 @@ export default defineComponent({
 
 			return {
 				turnedOnConnections: new Set(turnedOnConnections),
-				turnedOnPins: new Set(turnedOnConnections.map(({ from }) => from)),
+				turnedOnPins: on,
 			}
 		})
 
@@ -679,21 +684,49 @@ export default defineComponent({
 			})),
 		)
 
+		const drawingLineStart = computed(() =>
+			drawingLine.value.pin ? getPinLocation(drawingLine.value.pin) : null,
+		)
+
+		const drawingLineStatus = computed(() => {
+			const { pin } = drawingLine.value
+			if (!pin) {
+				return false
+			}
+
+			if (pin.type === "global-output") {
+				return outputs.value[pin.index]
+			}
+
+			if (pin.type === "output" && pin.content) {
+				const parameterConnections = connections.value.filter((x) => x.to.content === pin.content)
+				if (parameterConnections.length === pin.content.operatorInputs) {
+					const params = parameterConnections
+						.sort((a, b) => a.from.index - b.from.index)
+						.map(({ from }) => status.value.turnedOnPins.has(from))
+
+					return pin.content.operator(...params)[pin.index - pin.content.operatorInputs]
+				}
+			}
+
+			return false
+		})
+
 		return {
 			inputs: calculatedInputs,
 			outputs: calculatedOutputs,
 			components: calculatedComponents,
 			connections: calculatedConnections,
+			drawingLineStatus,
+			drawingLineStart,
 			drawingLine,
 			move,
 			draw,
-			calculatePath,
 			endDraw,
+			calculatePath,
 			clearPinConnections,
-			status,
 			addOutput,
 			addInput,
-			getPinLocation,
 		}
 	},
 })
