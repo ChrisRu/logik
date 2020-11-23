@@ -739,10 +739,7 @@ $off: #888;
 $on: #e03b3b;
 
 .field {
-	display: block;
 	box-sizing: border-box;
-	width: 90vw;
-	margin: 30px auto;
 	background: $bg;
 }
 

@@ -28,8 +28,33 @@ body {
 	margin: 0;
 	height: 100%;
 	background: #111;
-	display: flex;
-	justify-content: center;
-	align-items: center;
+}
+
+#app {
+	height: 100%;
+	box-sizing: border-box;
+	position: relative;
+}
+
+$padding: 2rem;
+
+.field {
+	margin: auto;
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	bottom: 0;
+	max-width: calc(100% - #{$padding} * 2);
+	max-height: calc(100vh - #{$padding} * 2);
+}
+
+@media (max-width: 800px) {
+	$padding: 0.5rem;
+
+	.field {
+		max-width: calc(100% - #{$padding} * 2);
+		max-height: calc(100vh - #{$padding} * 2);
+	}
 }
 </style>
