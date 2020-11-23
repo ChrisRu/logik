@@ -327,6 +327,10 @@ export default defineComponent({
 
 		function draw(event: MouseEvent | TouchEvent, fromPin: IPin) {
 			const isTouchEvent = event.type === "touchstart"
+			if (!isTouchEvent && event.which === 3) {
+				return
+			}
+
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget?.closest("svg") : null
 			if (!root) {
