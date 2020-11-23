@@ -20,7 +20,7 @@
 			stroke-linejoin="round"
 			:class="status.turnedOnConnections.has(connection) ? 'active-stroke' : 'inactive-stroke'"
 			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
-			:key="i"
+			:key="`${i}-${outputs.length}-${inputs.length}`"
 			@mouseup.right="clearPinConnections(connection.to)"
 			v-for="(connection, i) in connections"
 		/>
@@ -29,13 +29,6 @@
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
 			<g :key="`${i}-${outputs.length}`" v-for="(output, i) in outputs">
-				<rect
-					x="46"
-					:y="360 - 2 + (i - outputs.length / 2 + 0.5) * 80"
-					width="32"
-					height="4"
-					class="pin-arrow"
-				/>
 				<circle
 					class="draggable global-output pin"
 					r="8"
@@ -44,6 +37,13 @@
 					@mouseup="endDraw({ type: 'global-output', index: i })"
 					@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
 					:cy="360 + (i - outputs.length / 2 + 0.5) * 80"
+				/>
+				<rect
+					x="46"
+					:y="360 - 2 + (i - outputs.length / 2 + 0.5) * 80"
+					width="32"
+					height="4"
+					class="pin-arrow"
 				/>
 				<circle
 					:class="`toggleable ${output ? 'active' : 'inactive'}-bg`"
@@ -154,17 +154,10 @@
 				v-for="i in inputs"
 				@mouseup.right="removeInput({ type: 'global-input', index: i - 1 })"
 			>
-				<rect
-					class="pin-arrow"
-					x="1000"
-					:y="360 - 2 + (i - 1 - inputs / 2 + 0.5) * 80"
-					width="32"
-					height="4"
-				/>
 				<circle
 					:class="
 						status.turnedOnPins.has(
-							connections.find(({to}) => to.type === 'global-input' && to.index === i - 1)?.from,
+							connections.find(({ to }) => to.type === 'global-input' && to.index === i - 1)?.from,
 						)
 							? 'active-bg'
 							: 'inactive-bg'
@@ -177,10 +170,17 @@
 					class="draggable global-input pin"
 					r="8"
 					cx="1000"
+					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
 					@mouseup.right="clearPinConnections({ type: 'global-input', index: i - 1 })"
 					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
 					@mouseup="endDraw({ type: 'global-input', index: i - 1 })"
-					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
+				/>
+				<rect
+					class="pin-arrow"
+					x="1000"
+					:y="360 - 2 + (i - 1 - inputs / 2 + 0.5) * 80"
+					width="32"
+					height="4"
 				/>
 			</g>
 			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addInput">
@@ -231,7 +231,7 @@ class Component implements IPoint {
 		this.name = name
 		this.operator = operator
 		this.color = color
-		this.x = x || Math.random() * 900
+		this.x = x || Math.random() * 900 + 64
 		this.y = y || Math.random() * 600
 		this.operatorInputs = operator.length
 		this.operatorOutputs = operator(...Array(this.operatorInputs).fill(false)).length
@@ -258,9 +258,6 @@ function calculatePath(from: IPoint, to: IPoint) {
 }
 
 function getCircleCenter(element: Element, offset: number) {
-	if (!element) {
-		return { x: 0, y: 0 }
-	}
 	const cx = Number(element.getAttribute("cx") || 0)
 	const cy = Number(element.getAttribute("cy") || 0)
 	const r = Number(element.getAttribute("r") || 0)
@@ -309,6 +306,12 @@ export default defineComponent({
 			clearPinConnections(pin)
 
 			if (inputs.value > 1) {
+				for (const connection of connections.value) {
+					if (connection.to.type === "global-input" && connection.to.index > pin.index) {
+						connection.to.index--
+					}
+				}
+
 				inputs.value--
 			}
 		}
@@ -445,9 +448,6 @@ export default defineComponent({
 				return
 			}
 
-			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
-			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
-
 			const getPos = (isTouchEvent
 				? function getTouchPos(event: TouchEvent, point: DOMPoint) {
 						point.x = event.touches[0].clientX
@@ -458,45 +458,50 @@ export default defineComponent({
 						point.y = event.clientY
 				  }) as (event: MouseEvent | TouchEvent, point: DOMPoint) => void
 
-			const point = root.createSVGPoint()
-			const transform = root.getScreenCTM()?.inverse()
-
-			let isMoving = true
-			let newPoint
-
-			let mouseOffsetX = 0
-			let mouseOffsetY = 0
+			const mouseOffsetPoint = root.createSVGPoint()
 			if (event.currentTarget instanceof Element) {
 				const mouseOffset = root.createSVGPoint()
+				const boundingBox = event.currentTarget.getBoundingClientRect()
+
 				getPos(event, mouseOffset)
 
-				const boundingBox = event.currentTarget.getBoundingClientRect()
-				mouseOffsetX = mouseOffset.x - boundingBox.x
-				mouseOffsetY = mouseOffset.y - boundingBox.y
+				mouseOffsetPoint.x = mouseOffset.x - boundingBox.x
+				mouseOffsetPoint.y = mouseOffset.y - boundingBox.y
 			}
+
+			let isMoving = true
+			const point = root.createSVGPoint()
+			const rootTransformMatrix = root.getScreenCTM()?.inverse()
 
 			const update = () => {
 				if (isMoving) {
 					requestAnimationFrame(update)
 				}
 
-				newPoint = point.matrixTransform(transform)
-				component.x = Math.min(Math.max(64, newPoint.x - mouseOffsetX), 1080 - component.width - 64)
-				component.y = Math.min(Math.max(0, newPoint.y - mouseOffsetY), 720 - component.height)
+				let transformedPoint = root.createSVGPoint()
+				transformedPoint.x = point.x - mouseOffsetPoint.x
+				transformedPoint.y = point.y - mouseOffsetPoint.y
+				transformedPoint = transformedPoint.matrixTransform(rootTransformMatrix)
+				component.x = Math.min(Math.max(64, transformedPoint.x), 1080 - component.width - 64)
+				component.y = Math.min(Math.max(0, transformedPoint.y), 720 - component.height)
 			}
 
+			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
+			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
+
 			const move = (event: MouseEvent | TouchEvent) => getPos(event, point)
+
 			const stop = () => {
 				isMoving = false
 				root.removeEventListener(moveEvent, move)
 				root.removeEventListener(stopEvent, stop)
 			}
 
-			requestAnimationFrame(update)
-			move(event)
-
 			root.addEventListener(moveEvent, move)
 			root.addEventListener(stopEvent, stop)
+
+			requestAnimationFrame(update)
+			move(event)
 		}
 
 		function getLocation(pin: IPin) {
@@ -635,16 +640,7 @@ $on: #e03b3b;
 	background: $bg;
 }
 
-.sidebar:hover {
-	.button-add {
-		opacity: 1;
-	}
-}
-
 .button-add {
-	transition: opacity 0.1s;
-	opacity: 0;
-
 	&.disabled {
 		visibility: hidden;
 	}
@@ -689,6 +685,7 @@ $on: #e03b3b;
 
 .pin-arrow {
 	fill: $pin;
+	pointer-events: none;
 }
 
 .pin {
@@ -696,6 +693,10 @@ $on: #e03b3b;
 
 	&:hover {
 		fill: $off;
+
+		& + .pin-arrow {
+			fill: $off;
+		}
 	}
 }
 
