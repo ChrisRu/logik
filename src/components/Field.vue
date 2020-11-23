@@ -8,8 +8,8 @@
 			stroke-dasharray="10 10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:d="calculatePath(drawingLine.start, drawingLine.end)"
-			v-if="drawingLine.end !== null && drawingLine.start !== null"
+			:d="calculatePath(getPinLocation(drawingLine.pin), drawingLine.end)"
+			v-if="drawingLine.end !== null && drawingLine.pin !== null"
 		/>
 
 		<!--CONNECTIONS-->
@@ -19,7 +19,7 @@
 			stroke-linecap="round"
 			stroke-linejoin="round"
 			:class="status.turnedOnConnections.has(connection) ? 'active-stroke' : 'inactive-stroke'"
-			:d="calculatePath(getLocation(connection.from), getLocation(connection.to))"
+			:d="calculatePath(getPinLocation(connection.from), getPinLocation(connection.to))"
 			:key="`${i}-${outputs.length}-${inputs.length}`"
 			@mouseup.right="clearPinConnections(connection.to)"
 			v-for="(connection, i) in connections"
@@ -28,28 +28,28 @@
 		<!--LEFT SIDE OUTPUTS-->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g :key="`${i}-${outputs.length}`" v-for="(output, i) in outputs">
+			<g :key="i" v-for="(output, i) in outputs">
 				<circle
 					class="draggable global-output pin"
+					:cy="getPinLocation({ type: 'global-output', index: i }).y"
+					:cx="getPinLocation({ type: 'global-output', index: i }).x"
 					r="8"
-					cx="80"
 					@mousedown="draw($event, { type: 'global-output', index: i })"
 					@mouseup="endDraw({ type: 'global-output', index: i })"
 					@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
-					:cy="360 + (i - outputs.length / 2 + 0.5) * 80"
 				/>
 				<rect
-					x="46"
-					:y="360 - 2 + (i - outputs.length / 2 + 0.5) * 80"
+					:x="getPinLocation({ type: 'global-output', index: i }).x - 32"
+					:y="getPinLocation({ type: 'global-output', index: i }).y - 2"
 					width="32"
 					height="4"
 					class="pin-arrow"
 				/>
 				<circle
 					:class="`toggleable ${output ? 'active' : 'inactive'}-bg`"
+					:cx="getPinLocation({ type: 'global-output', index: i }).x - 48"
+					:cy="getPinLocation({ type: 'global-output', index: i }).y"
 					r="16"
-					cx="32"
-					:cy="360 + (i - outputs.length / 2 + 0.5) * 80"
 					@click="outputs[i] = !output"
 					@mouseup.right="removeOutput({ type: 'global-output', index: i })"
 				/>
@@ -91,10 +91,8 @@
 			/>
 			<circle
 				class="draggable pin"
-				:cx="component.x"
-				:cy="
-					component.y + component.height / 2 + (i - 1 - component.operatorInputs / 2) * 8 * 2.5 + 10
-				"
+				:cx="getPinLocation({ type: 'input', content: component, index: i - 1 }).x"
+				:cy="getPinLocation({ type: 'input', content: component, index: i - 1 }).y"
 				r="8"
 				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
 				@mouseup="endDraw({ type: 'input', content: component, index: i - 1 })"
@@ -104,12 +102,19 @@
 			/>
 			<circle
 				class="draggable pin"
-				:cx="component.x + component.width"
+				:cx="
+					getPinLocation({
+						type: 'output',
+						content: component,
+						index: i - 1 + component.operatorInputs,
+					}).x
+				"
 				:cy="
-					component.y +
-					component.height / 2 +
-					(i - 1 - component.operatorOutputs / 2) * 8 * 2.5 +
-					10
+					getPinLocation({
+						type: 'output',
+						content: component,
+						index: i - 1 + component.operatorInputs,
+					}).y
 				"
 				r="8"
 				@mouseup.right="
@@ -150,9 +155,9 @@
 		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
 			<g
+				@mouseup.right="removeInput({ type: 'global-input', index: i - 1 })"
 				:key="i"
 				v-for="i in inputs"
-				@mouseup.right="removeInput({ type: 'global-input', index: i - 1 })"
 			>
 				<circle
 					:class="
@@ -162,23 +167,23 @@
 							? 'active-bg'
 							: 'inactive-bg'
 					"
+					:cx="getPinLocation({ type: 'global-input', index: i - 1 }).x + 48"
+					:cy="getPinLocation({ type: 'global-input', index: i - 1 }).y"
 					r="16"
-					cx="1048"
-					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
 				/>
 				<circle
 					class="draggable global-input pin"
+					:cx="getPinLocation({ type: 'global-input', index: i - 1 }).x"
+					:cy="getPinLocation({ type: 'global-input', index: i - 1 }).y"
 					r="8"
-					cx="1000"
-					:cy="360 + (i - 1 - inputs / 2 + 0.5) * 80"
 					@mouseup.right="clearPinConnections({ type: 'global-input', index: i - 1 })"
 					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
 					@mouseup="endDraw({ type: 'global-input', index: i - 1 })"
 				/>
 				<rect
 					class="pin-arrow"
-					x="1000"
-					:y="360 - 2 + (i - 1 - inputs / 2 + 0.5) * 80"
+					:x="getPinLocation({ type: 'global-input', index: i - 1 }).x"
+					:y="getPinLocation({ type: 'global-input', index: i - 1 }).y - 2"
 					width="32"
 					height="4"
 				/>
@@ -257,16 +262,6 @@ function calculatePath(from: IPoint, to: IPoint) {
 	        L ${to.x},${to.y}`
 }
 
-function getCircleCenter(element: Element, offset: number) {
-	const cx = Number(element.getAttribute("cx") || 0)
-	const cy = Number(element.getAttribute("cy") || 0)
-	const r = Number(element.getAttribute("r") || 0)
-	const x = cx + r / 2 - offset
-	const y = cy + r / 2 - offset
-
-	return { x, y }
-}
-
 export default defineComponent({
 	name: "Field",
 	setup: () => {
@@ -275,11 +270,9 @@ export default defineComponent({
 
 		const drawingLine = ref<{
 			pin: IPin | null
-			start: IPoint | null
 			end: IPoint | null
 		}>({
 			pin: null,
-			start: null,
 			end: null,
 		})
 
@@ -321,12 +314,18 @@ export default defineComponent({
 
 			outputs.value = outputs.value.filter((_, i) => i !== pin.index)
 
+			for (const connection of connections.value) {
+				if (connection.from.type === "global-output" && connection.from.index > pin.index) {
+					connection.from.index--
+				}
+			}
+
 			if (outputs.value.length === 0) {
 				outputs.value = [false]
 			}
 		}
 
-		function draw(event: MouseEvent | TouchEvent, to: IPin) {
+		function draw(event: MouseEvent | TouchEvent, fromPin: IPin) {
 			const isTouchEvent = event.type === "touchstart"
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget?.closest("svg") : null
@@ -370,15 +369,14 @@ export default defineComponent({
 			const stop = () => {
 				isMoving = false
 				setTimeout(() => {
-					drawingLine.value = { pin: null, start: null, end: null }
+					drawingLine.value = { pin: null, end: null }
 				}, 0)
 				root.removeEventListener(moveEvent, move)
 				root.removeEventListener(stopEvent, stop)
 			}
 
 			if (event.target instanceof Element) {
-				drawingLine.value.pin = to
-				drawingLine.value.start = getCircleCenter(event.target, 4)
+				drawingLine.value.pin = fromPin
 			}
 
 			requestAnimationFrame(update)
@@ -504,18 +502,46 @@ export default defineComponent({
 			move(event)
 		}
 
-		function getLocation(pin: IPin) {
-			if (pin.type.startsWith("global")) {
-				const element = document.querySelectorAll(`.field .pin.${pin.type}`)[pin.index]
-				return getCircleCenter(element, 4)
+		function getPinLocation(pin: IPin) {
+			if (pin.type === "global-output") {
+				return {
+					x: 80,
+					y: 360 + (pin.index - outputs.value.length / 2 + 0.5) * 80,
+				}
+			} else if (pin.type === "global-input") {
+				return {
+					x: 1000,
+					y: 360 + (pin.index - inputs.value / 2 + 0.5) * 80,
+				}
+			} else if (pin.type === "output") {
+				if (!pin.content) {
+					throw new Error("Broken input pin")
+				}
+
+				return {
+					x: pin.content.x + pin.content.width,
+					y:
+						pin.content.y +
+						pin.content.height / 2 +
+						(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.5 +
+						10,
+				}
+			} else if (pin.type === "input") {
+				if (!pin.content) {
+					throw new Error("Broken output pin")
+				}
+
+				return {
+					x: pin.content.x,
+					y:
+						pin.content.y +
+						pin.content.height / 2 +
+						(pin.index - pin.content.operatorInputs / 2) * 8 * 2.5 +
+						10,
+				}
 			}
 
-			const componentIndex = pin.content ? components.value.indexOf(pin.content) : -1
-			const elements = document
-				.querySelectorAll(`.field .component`)
-				[componentIndex].querySelectorAll(".pin")
-			const element = elements[pin.index]
-			return getCircleCenter(element, 4)
+			throw new Error(`Unknown pin type ${pin.type}`)
 		}
 
 		const status = computed(() => {
@@ -612,7 +638,6 @@ export default defineComponent({
 			connections,
 			move,
 			draw,
-			getLocation,
 			calculatePath,
 			endDraw,
 			clearPinConnections,
@@ -621,6 +646,7 @@ export default defineComponent({
 			removeOutput,
 			addInput,
 			removeInput,
+			getPinLocation,
 		}
 	},
 })
