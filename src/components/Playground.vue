@@ -34,6 +34,8 @@
 					:cy="output.location.y"
 					:cx="output.location.x"
 					r="8"
+					@touchstart="draw($event, output.pin)"
+					@touchend="endDraw(output.pin)"
 					@mousedown="draw($event, output.pin)"
 					@mouseup="endDraw(output.pin)"
 					@mouseup.right="clearPinConnections(output.pin)"
@@ -100,6 +102,8 @@
 				:cx="inputPin.location.x"
 				:cy="inputPin.location.y"
 				r="8"
+				@touchstart="draw($event, inputPin.pin)"
+				@touchend="endDraw(inputPin.pin)"
 				@mousedown="draw($event, inputPin.pin)"
 				@mouseup="endDraw(inputPin.pin)"
 				@mouseup.right="clearPinConnections(inputPin.pin)"
@@ -111,7 +115,9 @@
 				:cx="outputPin.location.x"
 				:cy="outputPin.location.y"
 				r="8"
-				@mouseup.right="clearPinConnections(outputPin.index)"
+				@touchstart="draw($event, outputPin.pin)"
+				@touchend="endDraw(outputPin.pin)"
+				@mouseup.right="clearPinConnections(outputPin.pin)"
 				@mousedown="draw($event, outputPin.pin)"
 				@mouseup="endDraw(outputPin.pin)"
 				:key="outputPin.index"
@@ -142,6 +148,8 @@
 					:cx="input.location.x"
 					:cy="input.location.y"
 					r="8"
+					@touchstart="draw($event, input.pin)"
+					@touchend="endDraw(input.pin)"
 					@mouseup.right="clearPinConnections(input.pin)"
 					@mousedown="draw($event, input.pin)"
 					@mouseup="endDraw(input.pin)"
@@ -202,7 +210,7 @@ class Component implements IPoint {
 		this.name = name
 		this.operator = operator
 		this.color = color
-		this.x = x || Math.random() * 900 + 64
+		this.x = x || Math.random() * 800 + 64
 		this.y = y || Math.random() * 600
 		this.operatorInputs = operator.length
 		this.operatorOutputs = operator(...Array(this.operatorInputs).fill(false)).length
@@ -229,8 +237,8 @@ function calculatePath(from: IPoint, to: IPoint) {
 }
 
 export default defineComponent({
-	name: "Field",
-	setup: () => {
+	name: "Playground",
+	setup() {
 		const inputs = ref(1)
 		const outputs = ref<boolean[]>([true, false, true])
 
@@ -338,9 +346,7 @@ export default defineComponent({
 			const move = (event: MouseEvent | TouchEvent) => getPos(event, point)
 			const stop = () => {
 				isMoving = false
-				setTimeout(() => {
-					drawingLine.value = { pin: null, end: null }
-				}, 0)
+				drawingLine.value = { pin: null, end: null }
 				root.removeEventListener(moveEvent, move)
 				root.removeEventListener(stopEvent, stop)
 			}
@@ -371,6 +377,17 @@ export default defineComponent({
 			if (!fromPin) {
 				return
 			}
+
+			console.log(
+				JSON.stringify(
+					{
+						toPin,
+						fromPin,
+					},
+					null,
+					4,
+				),
+			)
 
 			if (
 				(fromPin.type.endsWith("output") && toPin.type.endsWith("output")) ||
@@ -473,45 +490,47 @@ export default defineComponent({
 		}
 
 		function getPinLocation(pin: IPin) {
-			if (pin.type === "global-output") {
-				return {
-					x: 80,
-					y: 360 + (pin.index - outputs.value.length / 2 + 0.5) * 80,
-				}
-			} else if (pin.type === "global-input") {
-				return {
-					x: 1000,
-					y: 360 + (pin.index - inputs.value / 2 + 0.5) * 80,
-				}
-			} else if (pin.type === "output") {
-				if (!pin.content) {
-					throw new Error("Broken input pin")
-				}
+			switch (pin.type) {
+				case "global-output":
+					return {
+						x: 80,
+						y: 360 + (pin.index - outputs.value.length / 2 + 0.5) * 80,
+					}
+				case "global-input":
+					return {
+						x: 1000,
+						y: 360 + (pin.index - inputs.value / 2 + 0.5) * 80,
+					}
+				case "output":
+					if (!pin.content) {
+						throw new Error("Broken input pin")
+					}
 
-				return {
-					x: pin.content.x + pin.content.width,
-					y:
-						pin.content.y +
-						pin.content.height / 2 +
-						(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.3 +
-						10,
-				}
-			} else if (pin.type === "input") {
-				if (!pin.content) {
-					throw new Error("Broken output pin")
-				}
+					return {
+						x: pin.content.x + pin.content.width,
+						y:
+							pin.content.y +
+							pin.content.height / 2 +
+							(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.3 +
+							10,
+					}
+				case "input":
+					if (!pin.content) {
+						throw new Error("Broken output pin")
+					}
 
-				return {
-					x: pin.content.x,
-					y:
-						pin.content.y +
-						pin.content.height / 2 +
-						(pin.index - pin.content.operatorInputs / 2) * 8 * 2.3 +
-						10,
-				}
+					return {
+						x: pin.content.x,
+						y:
+							pin.content.y +
+							pin.content.height / 2 +
+							(pin.index - pin.content.operatorInputs / 2) * 8 * 2.3 +
+							10,
+					}
+
+				default:
+					throw new Error(`Unknown pin type ${pin.type}`)
 			}
-
-			throw new Error(`Unknown pin type ${pin.type}`)
 		}
 
 		const status = computed(() => {
@@ -827,5 +846,11 @@ text {
 	padding-top: 2px;
 	text-transform: uppercase;
 	pointer-events: none;
+}
+
+.truth-table-wrapper {
+	position: absolute;
+	top: 5rem;
+	left: 5rem;
 }
 </style>

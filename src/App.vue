@@ -1,15 +1,15 @@
 <template>
-	<Field />
+	<playground />
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue"
-import Field from "./components/Field.vue"
+import Playground from "./components/Playground.vue"
 
 export default defineComponent({
 	name: "App",
 	components: {
-		Field,
+		Playground,
 	},
 })
 </script>
@@ -28,6 +28,7 @@ body {
 	margin: 0;
 	height: 100%;
 	background: #111;
+	color: #fff;
 }
 
 #app {
