@@ -18,40 +18,40 @@
 			stroke-width="4"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:class="status.turnedOnConnections.has(connection) ? 'active-stroke' : 'inactive-stroke'"
-			:d="calculatePath(getPinLocation(connection.from), getPinLocation(connection.to))"
-			:key="`${i}-${outputs.length}-${inputs.length}`"
+			:class="connection.active ? 'active-stroke' : 'inactive-stroke'"
+			:d="calculatePath(connection.fromLocation, connection.toLocation)"
+			:key="connection.index"
 			@mouseup.right="clearPinConnections(connection.to)"
-			v-for="(connection, i) in connections"
+			v-for="connection in connections"
 		/>
 
 		<!--LEFT SIDE OUTPUTS-->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g :key="i" v-for="(output, i) in outputs">
+			<g :key="output.index" v-for="output in outputs">
 				<circle
 					class="draggable global-output pin"
-					:cy="getPinLocation({ type: 'global-output', index: i }).y"
-					:cx="getPinLocation({ type: 'global-output', index: i }).x"
+					:cy="output.location.y"
+					:cx="output.location.x"
 					r="8"
-					@mousedown="draw($event, { type: 'global-output', index: i })"
-					@mouseup="endDraw({ type: 'global-output', index: i })"
-					@mouseup.right="clearPinConnections({ type: 'global-output', index: i })"
+					@mousedown="draw($event, output.pin)"
+					@mouseup="endDraw(output.pin)"
+					@mouseup.right="clearPinConnections(output.pin)"
 				/>
 				<rect
-					:x="getPinLocation({ type: 'global-output', index: i }).x - 32"
-					:y="getPinLocation({ type: 'global-output', index: i }).y - 2"
+					:x="output.location.x - 32"
+					:y="output.location.y - 2"
 					width="32"
 					height="4"
 					class="pin-arrow"
 				/>
 				<circle
-					:class="`toggleable ${output ? 'active' : 'inactive'}-bg`"
-					:cx="getPinLocation({ type: 'global-output', index: i }).x - 48"
-					:cy="getPinLocation({ type: 'global-output', index: i }).y"
+					:class="`toggleable ${output.active ? 'active' : 'inactive'}-bg`"
+					:cx="output.location.x - 48"
+					:cy="output.location.y"
 					r="16"
-					@click="outputs[i] = !output"
-					@mouseup.right="removeOutput({ type: 'global-output', index: i })"
+					@click="output.toggle()"
+					@mouseup.right="output.remove()"
 				/>
 			</g>
 
@@ -79,111 +79,75 @@
 		</g>
 
 		<!--COMPONENTS-->
-		<g :key="component.name + i" v-for="(component, i) in components" class="component">
+		<g
+			:key="component.content.name + component.index"
+			v-for="component in components"
+			class="component"
+		>
 			<rect
 				class="draggable"
-				:x="component.x"
-				:y="component.y"
-				:width="component.width"
-				:height="component.height"
-				:fill="component.color"
-				@mousedown="move($event, component)"
+				:x="component.content.x"
+				:y="component.content.y"
+				:width="component.content.width"
+				:height="component.content.height"
+				:fill="component.content.color"
+				@mousedown="move($event, component.content)"
 			/>
 			<circle
 				class="draggable pin"
-				:cx="getPinLocation({ type: 'input', content: component, index: i - 1 }).x"
-				:cy="getPinLocation({ type: 'input', content: component, index: i - 1 }).y"
+				:cx="inputPin.location.x"
+				:cy="inputPin.location.y"
 				r="8"
-				@mousedown="draw($event, { type: 'input', content: component, index: i - 1 })"
-				@mouseup="endDraw({ type: 'input', content: component, index: i - 1 })"
-				@mouseup.right="clearPinConnections({ type: 'input', content: component, index: i - 1 })"
-				:key="i"
-				v-for="i in component.operatorInputs"
+				@mousedown="draw($event, inputPin.pin)"
+				@mouseup="endDraw(inputPin.pin)"
+				@mouseup.right="clearPinConnections(inputPin.pin)"
+				:key="inputPin.index"
+				v-for="inputPin in component.inputPins"
 			/>
 			<circle
 				class="draggable pin"
-				:cx="
-					getPinLocation({
-						type: 'output',
-						content: component,
-						index: i - 1 + component.operatorInputs,
-					}).x
-				"
-				:cy="
-					getPinLocation({
-						type: 'output',
-						content: component,
-						index: i - 1 + component.operatorInputs,
-					}).y
-				"
+				:cx="outputPin.location.x"
+				:cy="outputPin.location.y"
 				r="8"
-				@mouseup.right="
-					clearPinConnections({
-						type: 'output',
-						content: component,
-						index: i - 1 + component.operatorInputs,
-					})
-				"
-				@mousedown="
-					draw($event, {
-						type: 'output',
-						content: component,
-						index: i - 1 + component.operatorInputs,
-					})
-				"
-				@mouseup="
-					endDraw({
-						type: 'output',
-						content: component,
-						index: i - 1 + component.operatorInputs,
-					})
-				"
-				:key="i"
-				v-for="i in component.operatorOutputs"
+				@mouseup.right="clearPinConnections(outputPin.index)"
+				@mousedown="draw($event, outputPin.pin)"
+				@mouseup="endDraw(outputPin.pin)"
+				:key="outputPin.index"
+				v-for="outputPin in component.outputPins"
 			/>
 			<text
-				:x="component.x + component.width / 2"
-				:y="component.y + component.height / 2 + 1"
+				:x="component.content.x + component.content.width / 2"
+				:y="component.content.y + component.content.height / 2 + 1"
 				dominant-baseline="middle"
 				text-anchor="middle"
 			>
-				{{ component.name }}
+				{{ component.content.name }}
 			</text>
 		</g>
 
 		<!--RIGHT SIDE INPUTS-->
 		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g
-				@mouseup.right="removeInput({ type: 'global-input', index: i - 1 })"
-				:key="i"
-				v-for="i in inputs"
-			>
+			<g @mouseup.right="input.remove()" :key="input.index" v-for="input in inputs">
 				<circle
-					:class="
-						status.turnedOnPins.has(
-							connections.find(({ to }) => to.type === 'global-input' && to.index === i - 1)?.from,
-						)
-							? 'active-bg'
-							: 'inactive-bg'
-					"
-					:cx="getPinLocation({ type: 'global-input', index: i - 1 }).x + 48"
-					:cy="getPinLocation({ type: 'global-input', index: i - 1 }).y"
+					:class="input.active ? 'active-bg' : 'inactive-bg'"
+					:cx="input.location.x + 48"
+					:cy="input.location.y"
 					r="16"
 				/>
 				<circle
 					class="draggable global-input pin"
-					:cx="getPinLocation({ type: 'global-input', index: i - 1 }).x"
-					:cy="getPinLocation({ type: 'global-input', index: i - 1 }).y"
+					:cx="input.location.x"
+					:cy="input.location.y"
 					r="8"
-					@mouseup.right="clearPinConnections({ type: 'global-input', index: i - 1 })"
-					@mousedown="draw($event, { type: 'global-input', index: i - 1 })"
-					@mouseup="endDraw({ type: 'global-input', index: i - 1 })"
+					@mouseup.right="clearPinConnections(input.pin)"
+					@mousedown="draw($event, input.pin)"
+					@mouseup="endDraw(input.pin)"
 				/>
 				<rect
 					class="pin-arrow"
-					:x="getPinLocation({ type: 'global-input', index: i - 1 }).x"
-					:y="getPinLocation({ type: 'global-input', index: i - 1 }).y - 2"
+					:x="input.location.x"
+					:y="input.location.y - 2"
 					width="32"
 					height="4"
 				/>
@@ -634,12 +598,93 @@ export default defineComponent({
 			}
 		})
 
+		const calculatedConnections = computed(() =>
+			connections.value.map((connection, index) => ({
+				index,
+				active: status.value.turnedOnConnections.has(connection),
+				from: connection.from,
+				to: connection.to,
+				fromLocation: getPinLocation(connection.from),
+				toLocation: getPinLocation(connection.to),
+			})),
+		)
+
+		const calculatedOutputs = computed(() =>
+			outputs.value.map((output, index) => {
+				const pin: IPin = { type: "global-output", index }
+
+				return {
+					index,
+					pin,
+					active: output,
+					location: getPinLocation(pin),
+					toggle: () => (outputs.value[index] = !output),
+					remove: () => removeOutput(pin),
+				}
+			}),
+		)
+
+		const calculatedInputs = computed(() =>
+			Array(inputs.value)
+				.fill(undefined)
+				.map((_, index) => {
+					const pin: IPin = { type: "global-input", index }
+					const connection = connections.value.find(({ to }) => deepEqual(to, pin))
+
+					return {
+						index,
+						pin,
+						active: connection && status.value.turnedOnPins.has(connection.from),
+						location: getPinLocation(pin),
+						remove: () => removeInput(pin),
+					}
+				}),
+		)
+
+		const calculatedComponents = computed(() =>
+			components.value.map((component, index) => ({
+				index,
+				content: component,
+				inputPins: Array(component.operatorInputs)
+					.fill(0)
+					.map((_, index) => {
+						const pin: IPin = {
+							type: "input",
+							content: component,
+							index,
+						}
+
+						return {
+							index,
+							pin,
+							location: getPinLocation(pin),
+						}
+					}),
+				outputPins: Array(component.operatorOutputs)
+					.fill(0)
+					.map((_, pinIndex) => {
+						const index = pinIndex + component.operatorInputs
+						const pin: IPin = {
+							type: "output",
+							content: component,
+							index,
+						}
+
+						return {
+							index,
+							pin,
+							location: getPinLocation(pin),
+						}
+					}),
+			})),
+		)
+
 		return {
-			inputs,
-			outputs,
-			components,
+			inputs: calculatedInputs,
+			outputs: calculatedOutputs,
+			components: calculatedComponents,
+			connections: calculatedConnections,
 			drawingLine,
-			connections,
 			move,
 			draw,
 			calculatePath,
@@ -647,9 +692,7 @@ export default defineComponent({
 			clearPinConnections,
 			status,
 			addOutput,
-			removeOutput,
 			addInput,
-			removeInput,
 			getPinLocation,
 		}
 	},
