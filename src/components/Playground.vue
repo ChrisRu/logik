@@ -34,8 +34,6 @@
 					:cy="output.location.y"
 					:cx="output.location.x"
 					r="8"
-					@touchstart="draw($event, output.pin)"
-					@touchend="endDraw(output.pin)"
 					@mousedown="draw($event, output.pin)"
 					@mouseup="endDraw(output.pin)"
 					@mouseup.right="clearPinConnections(output.pin)"
@@ -95,6 +93,7 @@
 				:width="component.content.width"
 				:height="component.content.height"
 				:fill="component.content.color"
+				@touchstart="move($event, component.content)"
 				@mousedown="move($event, component.content)"
 			/>
 			<circle
@@ -102,8 +101,6 @@
 				:cx="inputPin.location.x"
 				:cy="inputPin.location.y"
 				r="8"
-				@touchstart="draw($event, inputPin.pin)"
-				@touchend="endDraw(inputPin.pin)"
 				@mousedown="draw($event, inputPin.pin)"
 				@mouseup="endDraw(inputPin.pin)"
 				@mouseup.right="clearPinConnections(inputPin.pin)"
@@ -115,8 +112,6 @@
 				:cx="outputPin.location.x"
 				:cy="outputPin.location.y"
 				r="8"
-				@touchstart="draw($event, outputPin.pin)"
-				@touchend="endDraw(outputPin.pin)"
 				@mouseup.right="clearPinConnections(outputPin.pin)"
 				@mousedown="draw($event, outputPin.pin)"
 				@mouseup="endDraw(outputPin.pin)"
@@ -148,8 +143,6 @@
 					:cx="input.location.x"
 					:cy="input.location.y"
 					r="8"
-					@touchstart="draw($event, input.pin)"
-					@touchend="endDraw(input.pin)"
 					@mouseup.right="clearPinConnections(input.pin)"
 					@mousedown="draw($event, input.pin)"
 					@mouseup="endDraw(input.pin)"
@@ -190,7 +183,7 @@
 <script lang="ts">
 import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
-import { AND, INV, IOperator, NAND, OR } from "../logic"
+import { IOperator, AND, INV, NAND, OR } from "../logic"
 
 interface IPoint {
 	x: number
