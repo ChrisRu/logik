@@ -233,20 +233,11 @@ import deepEqual from "fast-deep-equal"
 import * as uuid from "uuid"
 import { AND, INV, NAND, OR } from "../services/logic"
 import { IPoint, IPin, Component, IConnection, compute } from "../services/computer"
+import { createDragFunction, getTouchPos } from "../services/drag"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
 	        L ${to.x},${to.y}`
-}
-
-function getTouchPos(event: MouseEvent | TouchEvent, point: DOMPoint) {
-	if ("touches" in event) {
-		point.x = event.touches[0].clientX
-		point.y = event.touches[0].clientY
-	} else {
-		point.x = event.clientX
-		point.y = event.clientY
-	}
 }
 
 interface IOutput {
@@ -324,59 +315,6 @@ export default defineComponent({
 			}
 		}
 
-		function draw(event: MouseEvent | TouchEvent, fromPin: IPin): void {
-			const isTouchEvent = event.type === "touchstart"
-			if (!isTouchEvent && event.which === 3) {
-				return
-			}
-
-			const root =
-				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
-			if (!root) {
-				return
-			}
-
-			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
-			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
-
-			const point = root.createSVGPoint()
-			const transform = root.getScreenCTM()?.inverse()
-
-			let isMoving = true
-			let newPoint
-
-			const update = (): void => {
-				if (isMoving) {
-					requestAnimationFrame(update)
-				}
-
-				newPoint = point.matrixTransform(transform)
-
-				drawingLine.value.end = {
-					x: newPoint.x,
-					y: newPoint.y,
-				}
-			}
-
-			const move = (event: MouseEvent | TouchEvent): void => getTouchPos(event, point)
-			const stop = (): void => {
-				isMoving = false
-				drawingLine.value = { pin: null, end: null }
-				root.removeEventListener(moveEvent, move)
-				root.removeEventListener(stopEvent, stop)
-			}
-
-			if (event.target instanceof Element) {
-				drawingLine.value.pin = fromPin
-			}
-
-			requestAnimationFrame(update)
-			move(event)
-
-			root.addEventListener(moveEvent, move)
-			root.addEventListener(stopEvent, stop)
-		}
-
 		function clearPinConnections(pin: IPin): void {
 			const pinConnections = connections.value.map(({ from, to }, i) => {
 				if (deepEqual(from, pin) || deepEqual(to, pin)) {
@@ -385,6 +323,47 @@ export default defineComponent({
 			})
 
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
+		}
+
+		const draw = createDragFunction<IPin>({
+			ignoreWhen: (event) => "button" in event && event.button === 3,
+			onStart: (pin) => (drawingLine.value.pin = pin),
+			onUpdate: (point) => (drawingLine.value.end = point),
+			onStop: () => (drawingLine.value = { pin: null, end: null }),
+		})
+
+		const move = createDragFunction<Component>({
+			withPointerOffset: true,
+			onUpdate: ({ x, y }, component) => {
+				component.x = Math.min(Math.max(64, x), 1080 - component.width - 64)
+				component.y = Math.min(Math.max(64, y), 720 - component.height)
+			},
+		})
+
+		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component): void {
+			const root =
+				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
+			if (!root) {
+				return
+			}
+
+			let point = root.createSVGPoint()
+
+			getTouchPos(event, point)
+
+			const rootTransformMatrix = root.getScreenCTM()?.inverse()
+
+			point = point.matrixTransform(rootTransformMatrix)
+
+			const component = new Component(
+				componentRef.name,
+				componentRef.operator,
+				componentRef.color,
+				point.x + 64,
+				point.y + 64,
+			)
+
+			components.value = [...components.value, component]
 		}
 
 		function endDrawOnNewPin(type: "global-input" | "global-output"): void {
@@ -491,86 +470,6 @@ export default defineComponent({
 
 				connections.value = [...connections.value, { key: uuid.v4(), from: fromPin, to: toPin }]
 			}
-		}
-
-		function move(event: MouseEvent | TouchEvent, component: Component): void {
-			const isTouchEvent = event.type === "touchstart"
-			const root =
-				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
-			if (!root) {
-				return
-			}
-
-			const mouseOffsetPoint = root.createSVGPoint()
-			if (event.currentTarget instanceof Element) {
-				const mouseOffset = root.createSVGPoint()
-				const boundingBox = event.currentTarget.getBoundingClientRect()
-
-				getTouchPos(event, mouseOffset)
-
-				mouseOffsetPoint.x = mouseOffset.x - boundingBox.x
-				mouseOffsetPoint.y = mouseOffset.y - boundingBox.y
-			}
-
-			let isMoving = true
-			const point = root.createSVGPoint()
-			const rootTransformMatrix = root.getScreenCTM()?.inverse()
-
-			const update = (): void => {
-				if (isMoving) {
-					requestAnimationFrame(update)
-				}
-
-				let transformedPoint = root.createSVGPoint()
-				transformedPoint.x = point.x - mouseOffsetPoint.x
-				transformedPoint.y = point.y - mouseOffsetPoint.y
-				transformedPoint = transformedPoint.matrixTransform(rootTransformMatrix)
-				component.x = Math.min(Math.max(64, transformedPoint.x), 1080 - component.width - 64)
-				component.y = Math.min(Math.max(64, transformedPoint.y), 720 - component.height)
-			}
-
-			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
-			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
-
-			const move = (event: MouseEvent | TouchEvent): void => getTouchPos(event, point)
-
-			const stop = (): void => {
-				isMoving = false
-				root.removeEventListener(moveEvent, move)
-				root.removeEventListener(stopEvent, stop)
-			}
-
-			root.addEventListener(moveEvent, move)
-			root.addEventListener(stopEvent, stop)
-
-			requestAnimationFrame(update)
-			move(event)
-		}
-
-		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component): void {
-			const root =
-				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
-			if (!root) {
-				return
-			}
-
-			let point = root.createSVGPoint()
-
-			getTouchPos(event, point)
-
-			const rootTransformMatrix = root.getScreenCTM()?.inverse()
-
-			point = point.matrixTransform(rootTransformMatrix)
-
-			const component = new Component(
-				componentRef.name,
-				componentRef.operator,
-				componentRef.color,
-				point.x + 64,
-				point.y + 64,
-			)
-
-			components.value = [...components.value, component]
 		}
 
 		function getPinLocation(pin: IPin): IPoint {
