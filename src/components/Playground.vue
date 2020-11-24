@@ -2,41 +2,40 @@
 	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
 		<!--DRAWING LINE-->
 		<path
+			v-if="drawingLineStart !== null && drawingLine.end !== null"
 			:class="drawingLineStatus ? 'active-stroke' : 'inactive-stroke'"
+			:d="calculatePath(drawingLineStart, drawingLine.end)"
 			fill="none"
 			stroke-width="4"
 			stroke-dasharray="10 10"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:d="calculatePath(drawingLineStart, drawingLine.end)"
-			v-if="drawingLineStart !== null && drawingLine.end !== null"
 		/>
 
 		<!--CONNECTIONS-->
 		<path
+			v-for="connection in connections"
+			:key="connection.index"
+			:class="connection.active ? 'active-stroke' : 'inactive-stroke'"
+			:d="calculatePath(connection.fromLocation, connection.toLocation)"
+			@mouseup.right="clearPinConnections(connection.to)"
 			fill="none"
 			stroke-width="4"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			:class="connection.active ? 'active-stroke' : 'inactive-stroke'"
-			:d="calculatePath(connection.fromLocation, connection.toLocation)"
-			:key="connection.index"
-			@mouseup.right="clearPinConnections(connection.to)"
-			v-for="connection in connections"
 		/>
 
 		<!--LEFT SIDE OUTPUTS-->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g :key="output.index" v-for="output in outputs">
+			<g v-for="output in outputs" :key="output.index" @mouseup="endDraw(output.pin)">
 				<circle
-					class="draggable global-output pin"
 					:cy="output.location.y"
 					:cx="output.location.x"
-					r="8"
 					@mousedown="draw($event, output.pin)"
-					@mouseup="endDraw(output.pin)"
 					@mouseup.right="clearPinConnections(output.pin)"
+					class="draggable global-output pin"
+					r="8"
 				/>
 				<rect
 					:x="output.location.x - 32"
@@ -49,74 +48,80 @@
 					:class="`toggleable ${output.active ? 'active' : 'inactive'}-bg`"
 					:cx="output.location.x - 48"
 					:cy="output.location.y"
-					r="16"
 					@click="output.toggle()"
 					@mouseup.right="output.remove()"
+					r="16"
 				/>
 			</g>
 
 			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addOutput">
-				<circle r="16" class="disabled-bg" cx="32" :cy="720 - 32" />
+				<circle
+					:cx="addOutputLocation.x"
+					:cy="addOutputLocation.y + 8"
+					class="disabled-bg"
+					r="16"
+				/>
 				<line
-					:x1="32"
-					:y1="720 - 32 - 8"
-					:x2="32"
-					:y2="720 - 32 + 8"
+					:x1="addOutputLocation.x"
+					:y1="addOutputLocation.y"
+					:x2="addOutputLocation.x"
+					:y2="addOutputLocation.y + 16"
 					class="inactive-stroke"
 					stroke-linecap="round"
 					stroke-width="3"
 				/>
 				<line
-					:x1="32 - 8"
-					:y1="720 - 32"
-					:x2="32 + 8"
-					:y2="720 - 32"
 					class="inactive-stroke"
 					stroke-linecap="round"
 					stroke-width="3"
+					:x1="addOutputLocation.x - 8"
+					:y1="addOutputLocation.y + 8"
+					:x2="addOutputLocation.x + 8"
+					:y2="addOutputLocation.y + 8"
 				/>
 			</g>
 		</g>
 
 		<!--COMPONENTS-->
 		<g
-			:key="component.content.name + component.index"
 			v-for="component in components"
+			:key="component.content.name + component.index"
 			class="component"
 		>
 			<rect
-				class="draggable"
 				:x="component.content.x"
 				:y="component.content.y"
-				rx="3"
-				ry="3"
 				:width="component.content.width"
 				:height="component.content.height"
 				:fill="component.content.color"
 				@touchstart="move($event, component.content)"
 				@mousedown="move($event, component.content)"
+				@mouseup="endDrawOnComponent(component)"
+				class="draggable"
+				rx="3"
+				ry="3"
 			/>
 			<circle
-				class="draggable pin"
+				v-for="inputPin in component.inputPins"
+				:key="inputPin.index"
 				:cx="inputPin.location.x"
 				:cy="inputPin.location.y"
-				r="8"
 				@mousedown="draw($event, inputPin.pin)"
 				@mouseup="endDraw(inputPin.pin)"
 				@mouseup.right="clearPinConnections(inputPin.pin)"
-				:key="inputPin.index"
-				v-for="inputPin in component.inputPins"
+				class="draggable pin"
+				r="8"
 			/>
 			<circle
-				class="draggable pin"
+				v-for="outputPin in component.outputPins"
+				:key="outputPin.index"
 				:cx="outputPin.location.x"
 				:cy="outputPin.location.y"
-				r="8"
 				@mouseup.right="clearPinConnections(outputPin.pin)"
 				@mousedown="draw($event, outputPin.pin)"
 				@mouseup="endDraw(outputPin.pin)"
-				:key="outputPin.index"
-				v-for="outputPin in component.outputPins"
+				class="draggable pin"
+				r="8"
 			/>
 			<text
 				:x="component.content.x + component.content.width / 2"
@@ -131,7 +136,12 @@
 		<!--RIGHT SIDE INPUTS-->
 		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g @mouseup.right="input.remove()" :key="input.index" v-for="input in inputs">
+			<g
+				v-for="input in inputs"
+				:key="input.index"
+				@mouseup="endDraw(input.pin)"
+				@mouseup.right="input.remove()"
+			>
 				<circle
 					:class="input.active ? 'active-bg' : 'inactive-bg'"
 					:cx="input.location.x + 48"
@@ -139,42 +149,71 @@
 					r="16"
 				/>
 				<circle
-					class="draggable global-input pin"
 					:cx="input.location.x"
 					:cy="input.location.y"
-					r="8"
 					@mouseup.right="clearPinConnections(input.pin)"
 					@mousedown="draw($event, input.pin)"
-					@mouseup="endDraw(input.pin)"
+					class="draggable global-input pin"
+					r="8"
 				/>
 				<rect
-					class="pin-arrow"
 					:x="input.location.x"
 					:y="input.location.y - 2"
+					class="pin-arrow"
 					width="32"
 					height="4"
 				/>
 			</g>
 			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addInput">
-				<circle r="16" class="disabled-bg" cx="1048" cy="688" />
+				<circle :cx="addInputLocation.x" :cy="addInputLocation.y + 8" class="disabled-bg" r="16" />
 				<line
-					x1="1048"
-					y1="680"
-					x2="1048"
-					y2="696"
 					class="inactive-stroke"
 					stroke-linecap="round"
 					stroke-width="3"
+					:x1="addInputLocation.x"
+					:y1="addInputLocation.y"
+					:x2="addInputLocation.x"
+					:y2="addInputLocation.y + 16"
 				/>
 				<line
-					x1="1040"
-					y1="688"
-					x2="1056"
-					y2="688"
 					class="inactive-stroke"
 					stroke-linecap="round"
 					stroke-width="3"
+					:x1="addInputLocation.x - 8"
+					:y1="addInputLocation.y + 8"
+					:x2="addInputLocation.x + 8"
+					:y2="addInputLocation.y + 8"
 				/>
+			</g>
+		</g>
+
+		<!-- Component Picker -->
+		<g>
+			<rect x="64" y="0" width="952" height="64" fill="#282828" />
+			<g v-for="(component, index) in availableComponents" :key="component.name">
+				<rect
+					fill="#444"
+					:x="68 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					y="12"
+					height="40"
+					rx="5"
+					ry="5"
+					:width="component.width"
+				/>
+				<text
+					fill="white"
+					font-size="18"
+					dominant-baseline="middle"
+					text-anchor="middle"
+					:x="
+						68 +
+						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
+						component.width / 2
+					"
+					y="34"
+				>
+					{{ component.name }}
+				</text>
 			</g>
 		</g>
 	</svg>
@@ -183,46 +222,8 @@
 <script lang="ts">
 import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
-import { IOperator, AND, INV, NAND, OR } from "../logic"
-
-interface IPoint {
-	x: number
-	y: number
-}
-
-class Component implements IPoint {
-	operatorInputs: number
-	operatorOutputs: number
-	operator: IOperator
-	color: string
-	name: string
-	x: number
-	y: number
-
-	constructor(name: string, operator: IOperator, color: string, x?: number, y?: number) {
-		this.name = name
-		this.operator = operator
-		this.color = color
-		this.x = x || Math.random() * 800 + 64
-		this.y = y || Math.random() * 600
-		this.operatorInputs = operator.length
-		this.operatorOutputs = operator(...Array(this.operatorInputs).fill(false)).length
-	}
-
-	get height() {
-		return Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 40)
-	}
-
-	get width() {
-		return this.name.length * 20 + 10
-	}
-}
-
-interface IPin {
-	type: "input" | "output" | "global-input" | "global-output"
-	content?: Component
-	index: number
-}
+import { IOperator, AND, INV, NAND, OR } from "../services/logic"
+import { IPoint, IPin, Component, Connection, compute } from "../services/computer"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
@@ -243,14 +244,16 @@ export default defineComponent({
 			end: null,
 		})
 
-		const components = ref<Component[]>([
+		const availableComponents = ref([
 			new Component("AND", AND, "#feb953"),
 			new Component("NAND", NAND, "#69be53"),
 			new Component("OR", OR, "#953feb"),
 			new Component("INV", INV, "#dc5fdc"),
 		])
 
-		const connections = ref<{ from: IPin; to: IPin }[]>([])
+		const components = ref<Component[]>([])
+
+		const connections = ref<Connection[]>([])
 
 		function addOutput() {
 			outputs.value = [...outputs.value, false]
@@ -365,22 +368,61 @@ export default defineComponent({
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
 		}
 
+		function endDrawOnComponent(component: typeof calculatedComponents.value[0]) {
+			if (!drawingLine.value.pin) {
+				return
+			}
+
+			if (drawingLine.value.pin.type.endsWith("output")) {
+				const activePinIndexes = connections.value
+					.filter(({ to }) => to.content === component.content)
+					.map(({ to }) => to.index)
+
+				if (activePinIndexes.length === component.inputPins.length) {
+					if (activePinIndexes.length === 1) {
+						endDraw(component.inputPins[0].pin)
+					}
+
+					return
+				}
+
+				for (const inputPin of component.inputPins) {
+					if (!activePinIndexes.includes(inputPin.pin.index)) {
+						endDraw(inputPin.pin)
+						return
+					}
+				}
+			} else {
+				const activePinIndexes = connections.value
+					.filter(({ from }) => from.content === component.content)
+					.map(({ from }) => from.index)
+
+				if (activePinIndexes.length === component.outputPins.length) {
+					if (activePinIndexes.length === 1) {
+						endDraw(component.outputPins[0].pin)
+					}
+
+					return
+				}
+
+				for (const outputPin of component.outputPins) {
+					if (!activePinIndexes.includes(outputPin.pin.index)) {
+						endDraw(outputPin.pin)
+						return
+					}
+				}
+			}
+		}
+
 		function endDraw(toPin: IPin) {
+			if (!toPin) {
+				return
+			}
+
 			let { pin: fromPin } = drawingLine.value
 			if (!fromPin) {
 				return
 			}
-
-			console.log(
-				JSON.stringify(
-					{
-						toPin,
-						fromPin,
-					},
-					null,
-					4,
-				),
-			)
 
 			if (
 				(fromPin.type.endsWith("output") && toPin.type.endsWith("output")) ||
@@ -393,27 +435,21 @@ export default defineComponent({
 				return
 			}
 
-			// Swap to correct order
 			if (fromPin.type.endsWith("input")) {
-				const tmp = fromPin
-				fromPin = toPin
-				toPin = tmp
+				;[fromPin, toPin] = [toPin, fromPin]
 			}
 
 			const sameConnectionIndex = connections.value.findIndex(
 				({ from, to }) => deepEqual(from, fromPin) && deepEqual(to, toPin),
 			)
 			if (sameConnectionIndex > -1) {
-				// Existing connection found, remove it
 				connections.value = connections.value.filter((_, i) => i !== sameConnectionIndex)
 			} else {
-				// Check for existing connection to input pin found, remove if found
 				const existingInputPinIndex = connections.value.findIndex(({ to }) => deepEqual(to, toPin))
 				if (existingInputPinIndex > -1) {
 					connections.value = connections.value.filter((_, i) => i !== existingInputPinIndex)
 				}
 
-				// Add new connection
 				connections.value = [...connections.value, { from: fromPin, to: toPin }]
 			}
 		}
@@ -461,7 +497,7 @@ export default defineComponent({
 				transformedPoint.y = point.y - mouseOffsetPoint.y
 				transformedPoint = transformedPoint.matrixTransform(rootTransformMatrix)
 				component.x = Math.min(Math.max(64, transformedPoint.x), 1080 - component.width - 64)
-				component.y = Math.min(Math.max(0, transformedPoint.y), 720 - component.height)
+				component.y = Math.min(Math.max(64, transformedPoint.y), 720 - component.height)
 			}
 
 			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
@@ -496,7 +532,7 @@ export default defineComponent({
 					}
 				case "output":
 					if (!pin.content) {
-						throw new Error("Broken input pin")
+						throw new Error("Broken input pin, no content defined")
 					}
 
 					return {
@@ -509,7 +545,7 @@ export default defineComponent({
 					}
 				case "input":
 					if (!pin.content) {
-						throw new Error("Broken output pin")
+						throw new Error("Broken output pin, no content defined")
 					}
 
 					return {
@@ -527,91 +563,14 @@ export default defineComponent({
 		}
 
 		const status = computed(() => {
-			const on = new Set<IPin>()
-			const off = new Set<IPin>()
-
-			const queue: IPin[] = connections.value
-				.filter(({ from }) => from.type === "global-output")
-				.map((x) => x.from)
-
-			while (queue.length) {
-				const current = queue.shift() as typeof queue[0]
-				if (on.has(current) || off.has(current)) {
-					continue
-				}
-
-				if (current.type === "global-output") {
-					for (const { from, to } of connections.value) {
-						if (from === current) {
-							queue.push(to)
-
-							if (outputs.value[current.index]) {
-								on.add(from)
-							} else {
-								off.add(from)
-							}
-						}
-					}
-				} else if (current.type === "global-input") {
-					for (const { from, to } of connections.value) {
-						if (to === current) {
-							queue.push(from)
-						}
-					}
-				} else if (current.type === "input") {
-					if (current.content?.operator === undefined) {
-						throw new Error("Operator is not defined for component")
-					}
-
-					const parameterConnections = connections.value.filter(
-						({ to }) => to.content === current.content,
-					)
-					if (parameterConnections.length !== current.content?.operatorInputs) {
-						console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
-						continue
-					}
-
-					const params = parameterConnections
-						.sort((a, b) => a.from.index - b.from.index)
-						.map(({ from }) => (on.has(from) ? true : off.has(from) ? false : undefined))
-					if (params.includes(undefined)) {
-						console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
-						continue
-					}
-					const status = current.content?.operator(...(params as boolean[]))
-
-					for (const { from, to } of connections.value) {
-						if (from.content === current.content) {
-							const statusIndex = from.index - current.content.operatorInputs
-							if (status[statusIndex]) {
-								on.add(from)
-							} else {
-								off.add(from)
-							}
-
-							queue.push(to)
-						}
-					}
-				} else if (current.type === "output") {
-					if (!current.content) {
-						throw new Error("Broken component, has no content")
-					}
-
-					for (const { from, to } of connections.value) {
-						if (to.content === current.content) {
-							queue.push(from)
-						}
-					}
-				} else {
-					throw new Error(`Unknown component type ${current.type}`)
-				}
-			}
-
-			const turnedOnConnections = connections.value.filter(({ from }) => on.has(from))
+			const turnedOnPins = compute(connections.value, outputs.value)
+			const turnedOnConnections = new Set(
+				connections.value.filter(({ from }) => turnedOnPins.has(from)),
+			)
 
 			return {
-				turnedOnConnections: new Set(turnedOnConnections),
-				turnedOnPins: on,
+				turnedOnPins,
+				turnedOnConnections,
 			}
 		})
 
@@ -711,7 +670,9 @@ export default defineComponent({
 			}
 
 			if (pin.type === "output" && pin.content) {
-				const parameterConnections = connections.value.filter((x) => x.to.content === pin.content)
+				const parameterConnections = connections.value.filter(
+					({ to }) => to.content === pin.content,
+				)
 				if (parameterConnections.length === pin.content.operatorInputs) {
 					const params = parameterConnections
 						.sort((a, b) => a.from.index - b.from.index)
@@ -724,17 +685,39 @@ export default defineComponent({
 			return false
 		})
 
+		const addOutputLocation = computed(() => {
+			const pinLocation = getPinLocation({ index: outputs.value.length, type: "global-output" })
+
+			return {
+				x: pinLocation.x - 48,
+				y: pinLocation.y - 6,
+			}
+		})
+
+		const addInputLocation = computed(() => {
+			const pinLocation = getPinLocation({ index: inputs.value, type: "global-input" })
+
+			return {
+				x: pinLocation.x + 48,
+				y: pinLocation.y - 6,
+			}
+		})
+
 		return {
 			inputs: calculatedInputs,
 			outputs: calculatedOutputs,
 			components: calculatedComponents,
 			connections: calculatedConnections,
+			addOutputLocation,
+			addInputLocation,
+			availableComponents,
 			drawingLineStatus,
 			drawingLineStart,
 			drawingLine,
 			move,
 			draw,
 			endDraw,
+			endDrawOnComponent,
 			calculatePath,
 			clearPinConnections,
 			addOutput,
@@ -755,6 +738,15 @@ $on: #e03b3b;
 	background: $bg;
 }
 
+.component {
+	&:hover,
+	&:active {
+		rect {
+			filter: brightness(85%);
+		}
+	}
+}
+
 .button-add {
 	&.disabled {
 		visibility: hidden;
@@ -773,16 +765,20 @@ $on: #e03b3b;
 	fill: $pin;
 }
 
+$active-shadow: drop-shadow(0px 3px 5px rgba(darken($on, 20%), 0.5));
+
 .active-bg {
 	fill: $on;
+	filter: $active-shadow;
 
 	&.toggleable:hover {
-		filter: grayscale(20%);
+		filter: $active-shadow grayscale(20%);
 	}
 }
 
 .active-stroke {
 	stroke: $on;
+	filter: $active-shadow;
 }
 
 .inactive-bg {
@@ -832,7 +828,7 @@ $on: #e03b3b;
 }
 
 text {
-	font-family: "Prompt", sans-serif, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	font-family: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	fill: white;
 	font-weight: 500;
 	letter-spacing: 0.3px;

@@ -23,7 +23,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue"
-import { IOperator } from "../logic"
+import { IOperator } from "../services/logic"
 
 function permute<T>(xs: T[]): T[][] {
 	const result: T[][] = []
@@ -45,10 +45,10 @@ function permute<T>(xs: T[]): T[][] {
 	return result
 }
 
-function uniqueArrays(xs: boolean[][]) {
-	const all = new Set(xs.map((x) => x.toString()))
+function uniqueBooleanArrays(xs: boolean[][]) {
+	const all = new Set(xs.map(String))
 
-	return Array.from(all).map((x) => x.split(",").map((x) => x === "true"))
+	return Array.from(all).map((str) => str.split(",").map((value) => value === "true"))
 }
 
 export default defineComponent({
@@ -60,15 +60,15 @@ export default defineComponent({
 		},
 	},
 	setup({ operator }) {
-		const permutations = uniqueArrays(
+		const permutations = uniqueBooleanArrays(
 			Array(operator.length + 1)
 				.fill(0)
-				.map((_, i) => i)
-				.flatMap((x) =>
+				.map((_, index) => index)
+				.flatMap((paramIndex) =>
 					permute(
 						Array(operator.length)
 							.fill(0)
-							.map((_, i) => x > i),
+							.map((_, valueIndex) => paramIndex > valueIndex),
 					),
 				),
 		)

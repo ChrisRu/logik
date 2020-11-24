@@ -22,12 +22,12 @@ html {
 }
 
 body {
-	font-family: "Prompt", sans-serif, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	font-family: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	margin: 0;
 	height: 100%;
-	background: #111;
+	background: #181818;
 	color: #fff;
 }
 
@@ -48,6 +48,8 @@ $padding: 2rem;
 	bottom: 0;
 	max-width: calc(100% - #{$padding} * 2);
 	max-height: calc(100vh - #{$padding} * 2);
+	border-radius: 5px;
+	box-shadow: 0px 10px 15px 8px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 800px) {
