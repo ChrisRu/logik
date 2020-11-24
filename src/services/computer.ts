@@ -48,7 +48,7 @@ export class Component implements IPoint {
 
 	get width() {
 		const { width } = calculateSize(this.name, {
-			fontSize: "18",
+			fontSize: "16",
 			fontWeight: "bold",
 			font: '"Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
 		})

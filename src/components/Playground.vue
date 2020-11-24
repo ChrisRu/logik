@@ -2,32 +2,31 @@
 	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
 		<!-- Component Picker -->
 		<g>
-			<rect x="64" y="0" width="952" height="64" fill="#282828" />
+			<rect x="64" y="0" width="952" height="50" fill="#282828" />
 			<g
 				v-for="(component, index) in availableComponents"
 				:key="component.name"
 				@mousedown="createAndMove($event, component)"
 			>
 				<rect
+					class="component-picker"
 					fill="#444"
-					:x="68 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
-					y="12"
-					height="40"
-					rx="5"
-					ry="5"
+					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					y="8"
+					height="34"
 					:width="component.width"
 				/>
 				<text
 					fill="white"
-					font-size="18"
+					font-size="16"
 					dominant-baseline="middle"
 					text-anchor="middle"
 					:x="
-						68 +
+						72 +
 						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
 						component.width / 2
 					"
-					y="34"
+					y="27"
 				>
 					{{ component.name }}
 				</text>
@@ -812,6 +811,15 @@ $on: #e03b3b;
 	&:active {
 		rect {
 			filter: brightness(85%);
+		}
+	}
+
+	&-picker {
+		fill: $pin;
+		cursor: pointer;
+
+		&:hover {
+			fill: lighten($pin, 10%);
 		}
 	}
 }
