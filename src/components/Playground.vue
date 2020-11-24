@@ -742,7 +742,7 @@ export default defineComponent({
 				)
 				if (parameterConnections.length === pin.content.operatorInputs) {
 					const params = parameterConnections
-						.sort((a, b) => a.from.index - b.from.index)
+						.sort((a, b) => a.to.index - b.to.index)
 						.map(({ from }) => status.value.turnedOnPins.has(from))
 
 					return pin.content.operator(...params)[pin.index - pin.content.operatorInputs]

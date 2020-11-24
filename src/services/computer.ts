@@ -101,7 +101,7 @@ export function compute(connections: IConnection[], outputs: boolean[]) {
 			}
 
 			const params = parameterConnections
-				.sort((a, b) => a.from.index - b.from.index)
+				.sort((a, b) => a.to.index - b.to.index)
 				.map(({ from }) =>
 					turnedOnPins.has(from) ? true : turnedOffPins.has(from) ? false : undefined,
 				)
