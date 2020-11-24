@@ -10,7 +10,7 @@ const longPress: Directive<HTMLElement> = {
 			return
 		}
 
-		let pressTimer: NodeJS.Timeout | null = null
+		let pressTimer: number | null = null
 
 		function start(event: MouseEvent | TouchEvent) {
 			if (event.type === "click" && "button" in event && event.button !== 0) {

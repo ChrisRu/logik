@@ -106,7 +106,7 @@ export function compute(connections: IConnection[], outputs: boolean[]) {
 					turnedOnPins.has(from) ? true : turnedOffPins.has(from) ? false : undefined,
 				)
 			if (params.includes(undefined)) {
-				console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
+				console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}. Circular structure?`)
 				continue
 			}
 

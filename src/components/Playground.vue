@@ -1,5 +1,39 @@
 <template>
 	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
+		<!-- Component Picker -->
+		<g>
+			<rect x="64" y="0" width="952" height="64" fill="#282828" />
+			<g
+				v-for="(component, index) in availableComponents"
+				:key="component.name"
+				@mousedown="createAndMove($event, component)"
+			>
+				<rect
+					fill="#444"
+					:x="68 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					y="12"
+					height="40"
+					rx="5"
+					ry="5"
+					:width="component.width"
+				/>
+				<text
+					fill="white"
+					font-size="18"
+					dominant-baseline="middle"
+					text-anchor="middle"
+					:x="
+						68 +
+						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
+						component.width / 2
+					"
+					y="34"
+				>
+					{{ component.name }}
+				</text>
+			</g>
+		</g>
+
 		<!--DRAWING LINE-->
 		<path
 			v-if="drawingLineStart !== null && drawingLine.end !== null"
@@ -191,40 +225,6 @@
 				/>
 			</g>
 		</g>
-
-		<!-- Component Picker -->
-		<g>
-			<rect x="64" y="0" width="952" height="64" fill="#282828" />
-			<g
-				v-for="(component, index) in availableComponents"
-				:key="component.name"
-				@mousedown="createAndMove($event, component)"
-			>
-				<rect
-					fill="#444"
-					:x="68 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
-					y="12"
-					height="40"
-					rx="5"
-					ry="5"
-					:width="component.width"
-				/>
-				<text
-					fill="white"
-					font-size="18"
-					dominant-baseline="middle"
-					text-anchor="middle"
-					:x="
-						68 +
-						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
-						component.width / 2
-					"
-					y="34"
-				>
-					{{ component.name }}
-				</text>
-			</g>
-		</g>
 	</svg>
 </template>
 
@@ -232,7 +232,7 @@
 import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
 import * as uuid from "uuid"
-import { IOperator, AND, INV, NAND, OR } from "../services/logic"
+import { AND, INV, NAND, OR } from "../services/logic"
 import { IPoint, IPin, Component, IConnection, compute } from "../services/computer"
 
 function calculatePath(from: IPoint, to: IPoint) {
@@ -285,17 +285,17 @@ export default defineComponent({
 
 		const connections = ref<IConnection[]>([])
 
-		function addOutput() {
+		function addOutput(): void {
 			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
 		}
 
-		function addInput() {
+		function addInput(): void {
 			if (inputs.value < 6) {
 				inputs.value++
 			}
 		}
 
-		function removeInput(pin: IPin) {
+		function removeInput(pin: IPin): void {
 			clearPinConnections(pin)
 
 			if (inputs.value > 1) {
@@ -309,7 +309,7 @@ export default defineComponent({
 			}
 		}
 
-		function removeOutput(pin: IPin) {
+		function removeOutput(pin: IPin): void {
 			clearPinConnections(pin)
 
 			outputs.value = outputs.value.filter((_, i) => i !== pin.index)
@@ -325,7 +325,7 @@ export default defineComponent({
 			}
 		}
 
-		function draw(event: MouseEvent | TouchEvent, fromPin: IPin) {
+		function draw(event: MouseEvent | TouchEvent, fromPin: IPin): void {
 			const isTouchEvent = event.type === "touchstart"
 			if (!isTouchEvent && event.which === 3) {
 				return
@@ -346,7 +346,7 @@ export default defineComponent({
 			let isMoving = true
 			let newPoint
 
-			const update = () => {
+			const update = (): void => {
 				if (isMoving) {
 					requestAnimationFrame(update)
 				}
@@ -359,8 +359,8 @@ export default defineComponent({
 				}
 			}
 
-			const move = (event: MouseEvent | TouchEvent) => getTouchPos(event, point)
-			const stop = () => {
+			const move = (event: MouseEvent | TouchEvent): void => getTouchPos(event, point)
+			const stop = (): void => {
 				isMoving = false
 				drawingLine.value = { pin: null, end: null }
 				root.removeEventListener(moveEvent, move)
@@ -378,7 +378,7 @@ export default defineComponent({
 			root.addEventListener(stopEvent, stop)
 		}
 
-		function clearPinConnections(pin: IPin) {
+		function clearPinConnections(pin: IPin): void {
 			const pinConnections = connections.value.map(({ from, to }, i) => {
 				if (deepEqual(from, pin) || deepEqual(to, pin)) {
 					return i
@@ -388,7 +388,7 @@ export default defineComponent({
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
 		}
 
-		function endDrawOnNewPin(type: "global-input" | "global-output") {
+		function endDrawOnNewPin(type: "global-input" | "global-output"): void {
 			if (!drawingLine.value.pin) {
 				return
 			}
@@ -408,7 +408,7 @@ export default defineComponent({
 			}
 		}
 
-		function endDrawOnComponent(component: typeof calculatedComponents.value[0]) {
+		function endDrawOnComponent(component: typeof calculatedComponents.value[0]): void {
 			if (!drawingLine.value.pin) {
 				return
 			}
@@ -454,7 +454,7 @@ export default defineComponent({
 			}
 		}
 
-		function endDraw(toPin: IPin) {
+		function endDraw(toPin: IPin): void {
 			if (!toPin) {
 				return
 			}
@@ -494,7 +494,7 @@ export default defineComponent({
 			}
 		}
 
-		function move(event: MouseEvent | TouchEvent, component: Component) {
+		function move(event: MouseEvent | TouchEvent, component: Component): void {
 			const isTouchEvent = event.type === "touchstart"
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
@@ -517,7 +517,7 @@ export default defineComponent({
 			const point = root.createSVGPoint()
 			const rootTransformMatrix = root.getScreenCTM()?.inverse()
 
-			const update = () => {
+			const update = (): void => {
 				if (isMoving) {
 					requestAnimationFrame(update)
 				}
@@ -533,9 +533,9 @@ export default defineComponent({
 			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
 			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
 
-			const move = (event: MouseEvent | TouchEvent) => getTouchPos(event, point)
+			const move = (event: MouseEvent | TouchEvent): void => getTouchPos(event, point)
 
-			const stop = () => {
+			const stop = (): void => {
 				isMoving = false
 				root.removeEventListener(moveEvent, move)
 				root.removeEventListener(stopEvent, stop)
@@ -548,31 +548,33 @@ export default defineComponent({
 			move(event)
 		}
 
-		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component) {
+		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component): void {
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
 				return
 			}
 
-			const point = root.createSVGPoint()
+			let point = root.createSVGPoint()
 
 			getTouchPos(event, point)
+
+			const rootTransformMatrix = root.getScreenCTM()?.inverse()
+
+			point = point.matrixTransform(rootTransformMatrix)
 
 			const component = new Component(
 				componentRef.name,
 				componentRef.operator,
 				componentRef.color,
-				point.x,
-				point.y,
+				point.x + 64,
+				point.y + 64,
 			)
 
 			components.value = [...components.value, component]
-
-			move(event, component)
 		}
 
-		function getPinLocation(pin: IPin) {
+		function getPinLocation(pin: IPin): IPoint {
 			switch (pin.type) {
 				case "global-output":
 					return {
@@ -616,7 +618,7 @@ export default defineComponent({
 			}
 		}
 
-		function removeComponent(component: Component) {
+		function removeComponent(component: Component): void {
 			connections.value = connections.value.filter(
 				({ from, to }) => from.content !== component && to.content !== component,
 			)
@@ -639,7 +641,7 @@ export default defineComponent({
 		})
 
 		const calculatedConnections = computed(() =>
-			connections.value.map((connection, index) => ({
+			connections.value.map((connection) => ({
 				key: connection.key,
 				active: status.value.turnedOnConnections.has(connection),
 				from: connection.from,
@@ -682,8 +684,8 @@ export default defineComponent({
 		)
 
 		const calculatedComponents = computed(() =>
-			components.value.map((component, index) => ({
-				index,
+			components.value.map((component) => ({
+				key: component.key,
 				content: component,
 				remove: () => removeComponent(component),
 				inputPins: Array(component.operatorInputs)
