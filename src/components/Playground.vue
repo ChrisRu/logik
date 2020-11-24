@@ -54,7 +54,11 @@
 				/>
 			</g>
 
-			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addOutput">
+			<g
+				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
+				@click="addOutput()"
+				@mouseup="endDrawOnNewPin('global-output')"
+			>
 				<circle
 					:cx="addOutputLocation.x"
 					:cy="addOutputLocation.y + 8"
@@ -83,11 +87,7 @@
 		</g>
 
 		<!--COMPONENTS-->
-		<g
-			v-for="component in components"
-			:key="component.key"
-			class="component"
-		>
+		<g v-for="component in components" :key="component.key" class="component">
 			<rect
 				:x="component.content.x"
 				:y="component.content.y"
@@ -97,6 +97,7 @@
 				@touchstart="move($event, component.content)"
 				@mousedown="move($event, component.content)"
 				@mouseup="endDrawOnComponent(component)"
+				@mouseup.right="component.remove()"
 				class="draggable"
 				rx="3"
 				ry="3"
@@ -164,7 +165,11 @@
 					height="4"
 				/>
 			</g>
-			<g :class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`" @click="addInput">
+			<g
+				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
+				@click="addInput()"
+				@mouseup="endDrawOnNewPin('global-input')"
+			>
 				<circle :cx="addInputLocation.x" :cy="addInputLocation.y + 8" class="disabled-bg" r="16" />
 				<line
 					class="inactive-stroke"
@@ -383,6 +388,26 @@ export default defineComponent({
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
 		}
 
+		function endDrawOnNewPin(type: "global-input" | "global-output") {
+			if (!drawingLine.value.pin) {
+				return
+			}
+
+			if (type === "global-output") {
+				if (drawingLine.value.pin.type.endsWith("input")) {
+					addOutput()
+					endDraw({ type, index: outputs.value.length - 1 })
+				}
+			} else if (type === "global-input") {
+				if (drawingLine.value.pin.type.endsWith("output")) {
+					addInput()
+					endDraw({ type, index: inputs.value - 1 })
+				}
+			} else {
+				throw new Error(`Unknown pin type: ${type}`)
+			}
+		}
+
 		function endDrawOnComponent(component: typeof calculatedComponents.value[0]) {
 			if (!drawingLine.value.pin) {
 				return
@@ -591,6 +616,13 @@ export default defineComponent({
 			}
 		}
 
+		function removeComponent(component: Component) {
+			connections.value = connections.value.filter(
+				({ from, to }) => from.content !== component && to.content !== component,
+			)
+			components.value = components.value.filter((c) => c !== component)
+		}
+
 		const status = computed(() => {
 			const turnedOnPins = compute(
 				connections.value,
@@ -618,7 +650,7 @@ export default defineComponent({
 		)
 
 		const calculatedOutputs = computed(() =>
-			outputs.value.map(({key, state}, index) => {
+			outputs.value.map(({ key, state }, index) => {
 				const pin: IPin = { type: "global-output", index }
 
 				return {
@@ -653,6 +685,7 @@ export default defineComponent({
 			components.value.map((component, index) => ({
 				index,
 				content: component,
+				remove: () => removeComponent(component),
 				inputPins: Array(component.operatorInputs)
 					.fill(0)
 					.map((_, index) => {
@@ -751,6 +784,7 @@ export default defineComponent({
 			draw,
 			endDraw,
 			endDrawOnComponent,
+			endDrawOnNewPin,
 			calculatePath,
 			clearPinConnections,
 			addOutput,
