@@ -15,7 +15,7 @@
 		<!--CONNECTIONS-->
 		<path
 			v-for="connection in connections"
-			:key="connection.index"
+			:key="connection.key"
 			:class="connection.active ? 'active-stroke' : 'inactive-stroke'"
 			:d="calculatePath(connection.fromLocation, connection.toLocation)"
 			@mouseup.right="clearPinConnections(connection.to)"
@@ -28,7 +28,7 @@
 		<!--LEFT SIDE OUTPUTS-->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g v-for="output in outputs" :key="output.index" @mouseup="endDraw(output.pin)">
+			<g v-for="output in outputs" :key="output.key" @mouseup="endDraw(output.pin)">
 				<circle
 					:cy="output.location.y"
 					:cx="output.location.x"
@@ -85,7 +85,7 @@
 		<!--COMPONENTS-->
 		<g
 			v-for="component in components"
-			:key="component.content.name + component.index"
+			:key="component.key"
 			class="component"
 		>
 			<rect
@@ -190,7 +190,11 @@
 		<!-- Component Picker -->
 		<g>
 			<rect x="64" y="0" width="952" height="64" fill="#282828" />
-			<g v-for="(component, index) in availableComponents" :key="component.name">
+			<g
+				v-for="(component, index) in availableComponents"
+				:key="component.name"
+				@mousedown="createAndMove($event, component)"
+			>
 				<rect
 					fill="#444"
 					:x="68 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
@@ -222,19 +226,40 @@
 <script lang="ts">
 import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
+import * as uuid from "uuid"
 import { IOperator, AND, INV, NAND, OR } from "../services/logic"
-import { IPoint, IPin, Component, Connection, compute } from "../services/computer"
+import { IPoint, IPin, Component, IConnection, compute } from "../services/computer"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
 	        L ${to.x},${to.y}`
 }
 
+function getTouchPos(event: MouseEvent | TouchEvent, point: DOMPoint) {
+	if ("touches" in event) {
+		point.x = event.touches[0].clientX
+		point.y = event.touches[0].clientY
+	} else {
+		point.x = event.clientX
+		point.y = event.clientY
+	}
+}
+
+interface IOutput {
+	state: boolean
+	key: string
+}
+
 export default defineComponent({
 	name: "Playground",
 	setup() {
 		const inputs = ref(1)
-		const outputs = ref<boolean[]>([true, false, true])
+
+		const outputs = ref<IOutput[]>([
+			{ key: uuid.v4(), state: true },
+			{ key: uuid.v4(), state: false },
+			{ key: uuid.v4(), state: true },
+		])
 
 		const drawingLine = ref<{
 			pin: IPin | null
@@ -253,10 +278,10 @@ export default defineComponent({
 
 		const components = ref<Component[]>([])
 
-		const connections = ref<Connection[]>([])
+		const connections = ref<IConnection[]>([])
 
 		function addOutput() {
-			outputs.value = [...outputs.value, false]
+			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
 		}
 
 		function addInput() {
@@ -291,7 +316,7 @@ export default defineComponent({
 			}
 
 			if (outputs.value.length === 0) {
-				outputs.value = [false]
+				outputs.value = [{ key: uuid.v4(), state: false }]
 			}
 		}
 
@@ -302,23 +327,13 @@ export default defineComponent({
 			}
 
 			const root =
-				event.currentTarget instanceof Element ? event.currentTarget?.closest("svg") : null
+				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
 				return
 			}
 
 			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
 			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
-
-			const getPos = (isTouchEvent
-				? function getTouchPos(event: TouchEvent, point: DOMPoint) {
-						point.x = event.touches[0].clientX
-						point.y = event.touches[0].clientY
-				  }
-				: function getMousePos(event: MouseEvent, point: DOMPoint) {
-						point.x = event.clientX
-						point.y = event.clientY
-				  }) as (event: MouseEvent | TouchEvent, point: DOMPoint) => void
 
 			const point = root.createSVGPoint()
 			const transform = root.getScreenCTM()?.inverse()
@@ -339,7 +354,7 @@ export default defineComponent({
 				}
 			}
 
-			const move = (event: MouseEvent | TouchEvent) => getPos(event, point)
+			const move = (event: MouseEvent | TouchEvent) => getTouchPos(event, point)
 			const stop = () => {
 				isMoving = false
 				drawingLine.value = { pin: null, end: null }
@@ -450,34 +465,24 @@ export default defineComponent({
 					connections.value = connections.value.filter((_, i) => i !== existingInputPinIndex)
 				}
 
-				connections.value = [...connections.value, { from: fromPin, to: toPin }]
+				connections.value = [...connections.value, { key: uuid.v4(), from: fromPin, to: toPin }]
 			}
 		}
 
 		function move(event: MouseEvent | TouchEvent, component: Component) {
 			const isTouchEvent = event.type === "touchstart"
 			const root =
-				event.currentTarget instanceof Element ? event.currentTarget?.closest("svg") : null
+				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
 				return
 			}
-
-			const getPos = (isTouchEvent
-				? function getTouchPos(event: TouchEvent, point: DOMPoint) {
-						point.x = event.touches[0].clientX
-						point.y = event.touches[0].clientY
-				  }
-				: function getMousePos(event: MouseEvent, point: DOMPoint) {
-						point.x = event.clientX
-						point.y = event.clientY
-				  }) as (event: MouseEvent | TouchEvent, point: DOMPoint) => void
 
 			const mouseOffsetPoint = root.createSVGPoint()
 			if (event.currentTarget instanceof Element) {
 				const mouseOffset = root.createSVGPoint()
 				const boundingBox = event.currentTarget.getBoundingClientRect()
 
-				getPos(event, mouseOffset)
+				getTouchPos(event, mouseOffset)
 
 				mouseOffsetPoint.x = mouseOffset.x - boundingBox.x
 				mouseOffsetPoint.y = mouseOffset.y - boundingBox.y
@@ -503,7 +508,7 @@ export default defineComponent({
 			const moveEvent = isTouchEvent ? "touchmove" : "mousemove"
 			const stopEvent = isTouchEvent ? "touchend" : "mouseup"
 
-			const move = (event: MouseEvent | TouchEvent) => getPos(event, point)
+			const move = (event: MouseEvent | TouchEvent) => getTouchPos(event, point)
 
 			const stop = () => {
 				isMoving = false
@@ -516,6 +521,30 @@ export default defineComponent({
 
 			requestAnimationFrame(update)
 			move(event)
+		}
+
+		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component) {
+			const root =
+				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
+			if (!root) {
+				return
+			}
+
+			const point = root.createSVGPoint()
+
+			getTouchPos(event, point)
+
+			const component = new Component(
+				componentRef.name,
+				componentRef.operator,
+				componentRef.color,
+				point.x,
+				point.y,
+			)
+
+			components.value = [...components.value, component]
+
+			move(event, component)
 		}
 
 		function getPinLocation(pin: IPin) {
@@ -563,7 +592,10 @@ export default defineComponent({
 		}
 
 		const status = computed(() => {
-			const turnedOnPins = compute(connections.value, outputs.value)
+			const turnedOnPins = compute(
+				connections.value,
+				outputs.value.map(({ state }) => state),
+			)
 			const turnedOnConnections = new Set(
 				connections.value.filter(({ from }) => turnedOnPins.has(from)),
 			)
@@ -576,7 +608,7 @@ export default defineComponent({
 
 		const calculatedConnections = computed(() =>
 			connections.value.map((connection, index) => ({
-				index,
+				key: connection.key,
 				active: status.value.turnedOnConnections.has(connection),
 				from: connection.from,
 				to: connection.to,
@@ -586,15 +618,15 @@ export default defineComponent({
 		)
 
 		const calculatedOutputs = computed(() =>
-			outputs.value.map((output, index) => {
+			outputs.value.map(({key, state}, index) => {
 				const pin: IPin = { type: "global-output", index }
 
 				return {
-					index,
+					key,
 					pin,
-					active: output,
+					active: state,
 					location: getPinLocation(pin),
-					toggle: () => (outputs.value[index] = !output),
+					toggle: () => (outputs.value[index].state = !state),
 					remove: () => removeOutput(pin),
 				}
 			}),
@@ -666,7 +698,7 @@ export default defineComponent({
 			}
 
 			if (pin.type === "global-output") {
-				return outputs.value[pin.index]
+				return outputs.value[pin.index].state
 			}
 
 			if (pin.type === "output" && pin.content) {
@@ -715,6 +747,7 @@ export default defineComponent({
 			drawingLineStart,
 			drawingLine,
 			move,
+			createAndMove,
 			draw,
 			endDraw,
 			endDrawOnComponent,

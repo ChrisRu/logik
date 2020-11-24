@@ -1,5 +1,6 @@
-import { IOperator } from "./logic"
+import * as uuid from 'uuid'
 import calculateSize from "calculate-size"
+import { IOperator } from "./logic"
 
 export interface IPoint {
 	x: number
@@ -12,7 +13,8 @@ export interface IPin {
 	index: number
 }
 
-export interface Connection {
+export interface IConnection {
+	key: string
 	from: IPin
 	to: IPin
 }
@@ -20,6 +22,7 @@ export interface Connection {
 const componentPadding = 32
 
 export class Component implements IPoint {
+	key: string
 	operatorInputs: number
 	operatorOutputs: number
 	operator: IOperator
@@ -29,6 +32,7 @@ export class Component implements IPoint {
 	y: number
 
 	constructor(name: string, operator: IOperator, color: string, x: number = 0, y: number = 0) {
+		this.key = uuid.v4()
 		this.name = name
 		this.operator = operator
 		this.color = color
@@ -53,7 +57,7 @@ export class Component implements IPoint {
 	}
 }
 
-export function compute(connections: Connection[], outputs: boolean[]) {
+export function compute(connections: IConnection[], outputs: boolean[]) {
 	const turnedOnPins = new Set<IPin>()
 	const turnedOffPins = new Set<IPin>()
 
