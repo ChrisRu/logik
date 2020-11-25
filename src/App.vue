@@ -15,7 +15,15 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
-@import url("https://fonts.googleapis.com/css2?family=Prompt:wght@400;500&display=swap");
+@font-face {
+	font-family: "Prompt";
+	font-style: normal;
+	font-weight: 500;
+	src: local(""),
+		/* Chrome 26+, Opera 23+, Firefox 39+ */ url("/fonts/prompt-v4-latin-500.woff2") format("woff2"),
+		/* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */ url("/fonts/prompt-v4-latin-500.woff")
+			format("woff");
+}
 
 html {
 	height: 100%;
