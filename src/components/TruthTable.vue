@@ -23,7 +23,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue"
-import { IOperator } from "../services/logic"
+import { Component, evaluate, ICustomComponent, IOperator } from "../services/computer"
 
 function permute<T>(xs: T[]): T[][] {
 	const result: T[][] = []
@@ -54,19 +54,19 @@ function uniqueBooleanArrays(xs: boolean[][]) {
 export default defineComponent({
 	name: "TruthTable",
 	props: {
-		operator: {
-			type: Function as PropType<IOperator>,
+		component: {
+			type: Component,
 			required: true,
 		},
 	},
-	setup({ operator }) {
+	setup({ component }) {
 		const permutations = uniqueBooleanArrays(
-			Array(operator.length + 1)
+			Array(component.operatorInputs + 1)
 				.fill(0)
 				.map((_, index) => index)
 				.flatMap((paramIndex) =>
 					permute(
-						Array(operator.length)
+						Array(component.operatorOutputs)
 							.fill(0)
 							.map((_, valueIndex) => paramIndex > valueIndex),
 					),
@@ -75,7 +75,7 @@ export default defineComponent({
 
 		const truthTable = permutations.map((params) => ({
 			params,
-			output: operator(...params),
+			output: evaluate(component.operator, params),
 		}))
 
 		return {

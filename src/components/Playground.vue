@@ -272,7 +272,7 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, computed, toRaw } from "vue"
+import { ref, defineComponent, computed } from "vue"
 import deepEqual from "fast-deep-equal"
 import * as uuid from "uuid"
 import {
@@ -591,16 +591,14 @@ export default defineComponent({
 					? availableColors[Math.floor(Math.random() * availableColors.length)]
 					: createRandomColor()
 
-			const rawConnections = toRaw(connections.value)
-
 			availableComponents.value = [
 				...availableComponents.value,
 				new Component(
 					name,
 					{
-						connections: [...rawConnections],
-						inputs: rawConnections.filter((x) => x.from.type === "global-output").length,
-						outputs: rawConnections.filter((x) => x.to.type === "global-input").length,
+						connections: [...connections.value],
+						inputs: connections.value.filter(({ from }) => from.type === "global-output").length,
+						outputs: connections.value.filter(({ to }) => to.type === "global-input").length,
 					},
 					color,
 				),
@@ -925,17 +923,22 @@ text {
 }
 
 .input {
-	border: 2px solid #181818;
+	outline: none;
+	border: 0;
 	background: #212121;
 	box-sizing: border-box;
 	text-transform: uppercase;
 	margin-top: 2px;
-	margin-left: 2px;
-	width: 240px;
+	width: 250px;
+	height: 34px;
 	font-size: 16px;
-	padding: 5px 10px 3px;
+	padding: 5px 15px 3px;
 	color: #fff;
 	font-family: $font;
+
+	&:focus {
+		background: #444;
+	}
 
 	&:disabled {
 		visibility: hidden;

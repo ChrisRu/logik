@@ -127,7 +127,7 @@ export function compute(connections: IConnection[], outputs: boolean[]): Set<IPi
 					} else {
 						turnedOffPins.add(from)
 						if (to.type === "global-input") {
-							turnedOnPins.add(to)
+							turnedOffPins.add(to)
 						}
 					}
 				}
