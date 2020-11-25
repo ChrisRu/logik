@@ -37,7 +37,7 @@ body {
 	position: relative;
 }
 
-$padding: 2rem;
+$margin: 3rem;
 
 .field {
 	margin: auto;
@@ -46,18 +46,18 @@ $padding: 2rem;
 	right: 0;
 	left: 0;
 	bottom: 0;
-	max-width: calc(100% - #{$padding} * 2);
-	max-height: calc(100vh - #{$padding} * 2);
+	max-width: min(calc((100vh - #{$margin * 2}) * 1.5), calc(100vw - #{$margin * 2}));
+	max-height: min(calc((100vh - #{$margin * 2}) * 1.5), calc(100vw - #{$margin * 2}));
 	border-radius: 5px;
 	box-shadow: 0px 10px 15px 8px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 800px) {
-	$padding: 0.5rem;
+	$margin: 0.5rem;
 
 	.field {
-		max-width: calc(100% - #{$padding} * 2);
-		max-height: calc(100vh - #{$padding} * 2);
+		max-width: min(calc((100vh - #{$margin * 2}) * 1.5), calc(100vw - #{$margin * 2}));
+		max-height: min(calc((100vh - #{$margin * 2}) * 1.5), calc(100vw - #{$margin * 2}));
 	}
 }
 </style>

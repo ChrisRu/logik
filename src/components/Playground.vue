@@ -1,12 +1,39 @@
 <template>
-	<svg viewBox="0 0 1080 720" class="field" @contextmenu.prevent>
+	<svg @contextmenu.prevent viewBox="0 0 1080 720" class="field" preserveAspectRatio="xMidYMid meet">
+		<defs>
+			<filter id="active-shadow">
+				<feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#9c1919" flood-opacity="0.5" />
+			</filter>
+			<filter id="grayscale">
+				<feColorMatrix type="saturate" values="0.2" />
+			</filter>
+			<filter id="active-shadow-grayscale">
+				<feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#9c1919" flood-opacity="0.5" />
+				<feColorMatrix type="saturate" values="0.8" />
+			</filter>
+			<filter id="bright">
+				<feComponentTransfer>
+					<feFuncR type="linear" slope="1.5"></feFuncR>
+					<feFuncG type="linear" slope="1.5"></feFuncG>
+					<feFuncB type="linear" slope="1.5"></feFuncB>
+				</feComponentTransfer>
+			</filter>
+			<filter id="not-bright">
+				<feComponentTransfer>
+					<feFuncR type="linear" slope="0.85"></feFuncR>
+					<feFuncG type="linear" slope="0.85"></feFuncG>
+					<feFuncB type="linear" slope="0.85"></feFuncB>
+				</feComponentTransfer>
+			</filter>
+		</defs>
+
 		<!-- Component Picker -->
 		<g>
 			<rect x="64" y="0" width="952" height="50" fill="#282828" />
 			<g
 				v-for="(component, index) in availableComponents"
 				:key="component.name"
-				@mousedown="createAndMove($event, component)"
+				@mousedown.left="createAndMove($event, component)"
 			>
 				<rect
 					class="component-picker"
@@ -61,11 +88,11 @@
 		<!--LEFT SIDE OUTPUTS-->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g v-for="output in outputs" :key="output.key" @mouseup="endDraw(output.pin)">
+			<g v-for="output in outputs" :key="output.key" @mouseup.left="endDraw(output.pin)">
 				<circle
 					:cy="output.location.y"
 					:cx="output.location.x"
-					@mousedown="draw($event, output.pin)"
+					@mousedown.left="draw($event, output.pin)"
 					@mouseup.right="clearPinConnections(output.pin)"
 					class="draggable global-output pin"
 					r="8"
@@ -90,7 +117,7 @@
 			<g
 				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
 				@click="addOutput()"
-				@mouseup="endDrawOnNewPin('global-output')"
+				@mouseup.left="endDrawOnNewPin('global-output')"
 			>
 				<circle
 					:cx="addOutputLocation.x"
@@ -128,8 +155,8 @@
 				:height="component.content.height"
 				:fill="component.content.color"
 				@touchstart="move($event, component.content)"
-				@mousedown="move($event, component.content)"
-				@mouseup="endDrawOnComponent(component)"
+				@mousedown.left="move($event, component.content)"
+				@mouseup.left="endDrawOnComponent(component)"
 				@mouseup.right="component.remove()"
 				class="draggable"
 				rx="3"
@@ -140,8 +167,8 @@
 				:key="inputPin.index"
 				:cx="inputPin.location.x"
 				:cy="inputPin.location.y"
-				@mousedown="draw($event, inputPin.pin)"
-				@mouseup="endDraw(inputPin.pin)"
+				@mousedown.left="draw($event, inputPin.pin)"
+				@mouseup.left="endDraw(inputPin.pin)"
 				@mouseup.right="clearPinConnections(inputPin.pin)"
 				class="draggable pin"
 				r="8"
@@ -151,9 +178,9 @@
 				:key="outputPin.index"
 				:cx="outputPin.location.x"
 				:cy="outputPin.location.y"
+				@mousedown.left="draw($event, outputPin.pin)"
+				@mouseup.left="endDraw(outputPin.pin)"
 				@mouseup.right="clearPinConnections(outputPin.pin)"
-				@mousedown="draw($event, outputPin.pin)"
-				@mouseup="endDraw(outputPin.pin)"
 				class="draggable pin"
 				r="8"
 			/>
@@ -170,23 +197,19 @@
 		<!--RIGHT SIDE INPUTS-->
 		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
-			<g
-				v-for="input in inputs"
-				:key="input.index"
-				@mouseup="endDraw(input.pin)"
-				@mouseup.right="input.remove()"
-			>
+			<g v-for="input in inputs" :key="input.index" @mouseup.left="endDraw(input.pin)">
 				<circle
 					:class="input.active ? 'active-bg' : 'inactive-bg'"
 					:cx="input.location.x + 48"
 					:cy="input.location.y"
+					@mouseup.right="input.remove()"
 					r="16"
 				/>
 				<circle
 					:cx="input.location.x"
 					:cy="input.location.y"
 					@mouseup.right="clearPinConnections(input.pin)"
-					@mousedown="draw($event, input.pin)"
+					@mousedown.left="draw($event, input.pin)"
 					class="draggable global-input pin"
 					r="8"
 				/>
@@ -201,7 +224,7 @@
 			<g
 				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
 				@click="addInput()"
-				@mouseup="endDrawOnNewPin('global-input')"
+				@mouseup.left="endDrawOnNewPin('global-input')"
 			>
 				<circle :cx="addInputLocation.x" :cy="addInputLocation.y + 8" class="disabled-bg" r="16" />
 				<line
@@ -265,10 +288,10 @@ export default defineComponent({
 		})
 
 		const availableComponents = ref([
-			new Component("AND", AND, "#feb953"),
-			new Component("NAND", NAND, "#69be53"),
-			new Component("OR", OR, "#953feb"),
 			new Component("INV", INV, "#dc5fdc"),
+			new Component("AND", AND, "#feb953"),
+			new Component("OR", OR, "#953feb"),
+			new Component("NAND", NAND, "#69be53"),
 		])
 
 		const components = ref<Component[]>([])
@@ -326,7 +349,6 @@ export default defineComponent({
 		}
 
 		const draw = createDragFunction<IPin>({
-			ignoreWhen: (event) => "button" in event && event.button === 3,
 			onStart: (pin) => (drawingLine.value.pin = pin),
 			onUpdate: (point) => (drawingLine.value.end = point),
 			onStop: () => (drawingLine.value = { pin: null, end: null }),
@@ -709,7 +731,7 @@ $on: #e03b3b;
 	&:hover,
 	&:active {
 		rect {
-			filter: brightness(85%);
+			filter: url(#not-bright);
 		}
 	}
 
@@ -732,7 +754,7 @@ $on: #e03b3b;
 		cursor: pointer;
 
 		&:hover {
-			filter: brightness(150%);
+			filter: url(#bright);
 		}
 	}
 }
@@ -741,27 +763,25 @@ $on: #e03b3b;
 	fill: $pin;
 }
 
-$active-shadow: drop-shadow(0px 3px 5px rgba(darken($on, 20%), 0.5));
-
 .active-bg {
 	fill: $on;
-	filter: $active-shadow;
+	filter: url(#active-shadow);
 
 	&.toggleable:hover {
-		filter: $active-shadow grayscale(20%);
+		filter: url(#active-shadow-grayscale);
 	}
 }
 
 .active-stroke {
 	stroke: $on;
-	filter: $active-shadow;
+	filter: url(#active-shadow);
 }
 
 .inactive-bg {
 	fill: $off;
 
 	&.toggleable:hover {
-		filter: grayscale(70%);
+		filter: url(#grayscale);
 		fill: $on;
 	}
 }
@@ -811,6 +831,7 @@ text {
 	padding-top: 2px;
 	text-transform: uppercase;
 	pointer-events: none;
+	user-select: none;
 }
 
 .truth-table-wrapper {
