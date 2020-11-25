@@ -22,8 +22,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from "vue"
-import { Component, evaluate, ICustomComponent, IOperator } from "../services/computer"
+import { defineComponent } from "vue"
+import { Component, evaluate } from "../services/computer"
 
 function permute<T>(xs: T[]): T[][] {
 	const result: T[][] = []

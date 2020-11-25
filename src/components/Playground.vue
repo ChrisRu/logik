@@ -287,7 +287,7 @@ import {
 	NAND,
 	evaluate,
 } from "../services/computer"
-import { createDragFunction, getTouchPos } from "../services/drag"
+import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
 
 function calculatePath(from: IPoint, to: IPoint) {
