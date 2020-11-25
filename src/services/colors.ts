@@ -11,18 +11,21 @@ export const colors = [
 	"#6567e1",
 ]
 
+const hexLetters = "0123456789abcdef"
 export function createRandomColor(): string {
-	var letters = "0123456789ABCDEF"
-	var color = "#"
-	for (var i = 0; i < 6; i++) {
-		color += letters[Math.floor(Math.random() * 16)]
-	}
+	const color = Array(6)
+		.fill("0")
+		.map(() => hexLetters[Math.floor(Math.random() * 16)])
 
-	const contrast = [letters.indexOf(color[1]), letters.indexOf(color[3]), letters.indexOf(color[5])]
-
-	if (contrast.every((index) => index > 11)) {
+	const contrast = [
+		hexLetters.indexOf(color[1]),
+		hexLetters.indexOf(color[3]),
+		hexLetters.indexOf(color[5]),
+	]
+	const tooBright = contrast.every((index) => index > 11)
+	if (tooBright) {
 		return createRandomColor()
 	}
 
-	return color
+	return "#" + color.join("")
 }

@@ -22,11 +22,18 @@ export interface ICustomComponent {
 	inputs: number
 }
 
-export interface IPin {
-	type: "input" | "output" | "global-input" | "global-output"
-	content?: Component
+interface IGlobalPin {
+	type: "global-input" | "global-output"
 	index: number
 }
+
+interface IComponentPin {
+	type: "input" | "output"
+	content: Component
+	index: number
+}
+
+export type IPin = IGlobalPin | IComponentPin
 
 export interface IConnection {
 	key: string
@@ -47,7 +54,7 @@ export function isSamePin(a: IPin, b: IPin) {
 		return true
 	}
 
-	if (!a.content || !b.content) {
+	if (!("content" in a) || !("content" in b)) {
 		throw new Error("Invalid pin content")
 	}
 
@@ -167,7 +174,9 @@ export function compute(connections: IConnection[], outputs: boolean[]): Set<IPi
 				throw new Error("Operator is not defined for component")
 			}
 
-			const parameterConnections = connections.filter(({ to }) => to.content === current.content)
+			const parameterConnections = connections.filter(
+				({ to }) => "content" in to && to.content === current.content,
+			)
 			if (parameterConnections.length !== current.content?.operatorInputs) {
 				console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
 				continue
@@ -188,7 +197,7 @@ export function compute(connections: IConnection[], outputs: boolean[]): Set<IPi
 			const status = evaluate(current.content?.operator, params as boolean[])
 
 			for (const { from, to } of connections) {
-				if (from.content === current.content) {
+				if ("content" in from && isSameComponent(from.content, current.content)) {
 					const statusIndex = from.index - current.content.operatorInputs
 					if (status[statusIndex]) {
 						turnedOnPins.add(from)
@@ -211,7 +220,7 @@ export function compute(connections: IConnection[], outputs: boolean[]): Set<IPi
 			}
 
 			for (const { from, to } of connections) {
-				if (to.content === current.content) {
+				if ("content" in to && isSameComponent(to.content, current.content)) {
 					queue.push(from)
 				}
 			}

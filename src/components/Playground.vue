@@ -410,7 +410,7 @@ export default defineComponent({
 				return
 			}
 
-			const component = new Component(
+			const newComponent = new Component(
 				componentRef.name,
 				componentRef.operator,
 				componentRef.color,
@@ -418,7 +418,7 @@ export default defineComponent({
 				50 + 32,
 			)
 
-			components.value = [...components.value, component]
+			components.value = [...components.value, newComponent]
 		}
 
 		function endDrawOnNewPin(type: "global-input" | "global-output"): void {
