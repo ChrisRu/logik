@@ -306,8 +306,7 @@ export default defineComponent({
 		const inputs = ref(1)
 
 		const outputs = ref<IOutput[]>([
-			{ key: uuid.v4(), state: true },
-			{ key: uuid.v4(), state: false },
+			{ key: uuid.v4(), state: true }
 		])
 
 		const drawingLine = ref<{
@@ -597,8 +596,8 @@ export default defineComponent({
 					name,
 					{
 						connections: [...connections.value],
-						inputs: connections.value.filter(({ from }) => from.type === "global-output").length,
-						outputs: connections.value.filter(({ to }) => to.type === "global-input").length,
+						inputs: outputs.value.length,
+						outputs: inputs.value,
 					},
 					color,
 				),
@@ -612,8 +611,7 @@ export default defineComponent({
 			connections.value = []
 			inputs.value = 1
 			outputs.value = [
-				{ state: true, key: uuid.v4() },
-				{ state: false, key: uuid.v4() },
+				{ state: true, key: uuid.v4() }
 			]
 		}
 
