@@ -243,7 +243,7 @@
 				/>
 			</g>
 			<g
-				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
+				:class="`button-add ${inputs.length > 5 ? 'disabled' : ''}`"
 				@click="addInput()"
 				@mouseup.left="endDrawOnNewPin('global-input')"
 			>

@@ -12,7 +12,7 @@ The app uses left and right click heavily. Use left click to move and drag new c
 
 ### Tech stack
 
-The tech stack for this app is just Vue 3 with TypeScript and SCSS.
+The tech stack for this app is just Vue 3 with TypeScript and SCSS. The entire playground is based on SVG.
 
 Vite is used as dev server.
 
