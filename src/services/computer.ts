@@ -34,6 +34,30 @@ export interface IConnection {
 	to: IPin
 }
 
+export function isSamePin(a: IPin, b: IPin) {
+	if (a.type !== b.type) {
+		return false
+	}
+
+	if (a.index !== b.index) {
+		return false
+	}
+
+	if (a.type === "global-input" || a.type === "global-output") {
+		return true
+	}
+
+	if (!a.content || !b.content) {
+		throw new Error("Invalid pin content")
+	}
+
+	return isSameComponent(a.content, b.content)
+}
+
+export function isSameComponent(a: Component, b: Component): boolean {
+	return a.key === b.key
+}
+
 const componentPadding = 32
 
 export class Component implements IPoint {

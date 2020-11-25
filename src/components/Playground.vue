@@ -273,7 +273,6 @@
 
 <script lang="ts">
 import { ref, defineComponent, computed } from "vue"
-import deepEqual from "fast-deep-equal"
 import * as uuid from "uuid"
 import {
 	IPoint,
@@ -286,6 +285,8 @@ import {
 	OR,
 	NAND,
 	evaluate,
+	isSamePin,
+	isSameComponent,
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
@@ -305,9 +306,7 @@ export default defineComponent({
 	setup() {
 		const inputs = ref(1)
 
-		const outputs = ref<IOutput[]>([
-			{ key: uuid.v4(), state: true }
-		])
+		const outputs = ref<IOutput[]>([{ key: uuid.v4(), state: true }])
 
 		const drawingLine = ref<{
 			pin: IPin | null
@@ -370,7 +369,7 @@ export default defineComponent({
 
 		function clearPinConnections(pin: IPin): void {
 			const pinConnections = connections.value.map(({ from, to }, i) => {
-				if (deepEqual(from, pin) || deepEqual(to, pin)) {
+				if (isSamePin(from, pin) || isSamePin(to, pin)) {
 					return i
 				}
 			})
@@ -393,7 +392,10 @@ export default defineComponent({
 		const move = createDragFunction<Component>({
 			withPointerOffset: true,
 			onStart(component) {
-				components.value = [...components.value.filter((c) => c !== component), component]
+				components.value = [
+					...components.value.filter((c) => !isSameComponent(c, component)),
+					component,
+				]
 			},
 			onUpdate({ x, y }, component) {
 				component.x = Math.min(Math.max(64, x), 1080 - component.width - 64)
@@ -446,7 +448,7 @@ export default defineComponent({
 
 			if (drawingLine.value.pin.type.endsWith("output")) {
 				const activePinIndexes = connections.value
-					.filter(({ to }) => to.content === component.content)
+					.filter(({ to }) => to.content && isSameComponent(to.content, component.content))
 					.map(({ to }) => to.index)
 
 				if (activePinIndexes.length === component.inputPins.length) {
@@ -465,7 +467,7 @@ export default defineComponent({
 				}
 			} else {
 				const activePinIndexes = connections.value
-					.filter(({ from }) => from.content === component.content)
+					.filter(({ from }) => from.content && isSameComponent(from.content, component.content))
 					.map(({ from }) => from.index)
 
 				if (activePinIndexes.length === component.outputPins.length) {
@@ -502,7 +504,7 @@ export default defineComponent({
 				return
 			}
 
-			if ("content" in fromPin && "content" in toPin && fromPin.content === toPin.content) {
+			if (fromPin.content && toPin.content && isSameComponent(fromPin.content, toPin.content)) {
 				return
 			}
 
@@ -511,12 +513,12 @@ export default defineComponent({
 			}
 
 			const sameConnectionIndex = connections.value.findIndex(
-				({ from, to }) => deepEqual(from, fromPin) && deepEqual(to, toPin),
+				({ from, to }) => isSamePin(from, fromPin as IPin) && isSamePin(to, toPin),
 			)
 			if (sameConnectionIndex > -1) {
 				connections.value = connections.value.filter((_, i) => i !== sameConnectionIndex)
 			} else {
-				const existingInputPinIndex = connections.value.findIndex(({ to }) => deepEqual(to, toPin))
+				const existingInputPinIndex = connections.value.findIndex(({ to }) => isSamePin(to, toPin))
 				if (existingInputPinIndex > -1) {
 					connections.value = connections.value.filter((_, i) => i !== existingInputPinIndex)
 				}
@@ -571,9 +573,11 @@ export default defineComponent({
 
 		function removeComponent(component: Component): void {
 			connections.value = connections.value.filter(
-				({ from, to }) => from.content !== component && to.content !== component,
+				({ from, to }) =>
+					(!from.content || !isSameComponent(from.content, component)) &&
+					(!to.content || !isSameComponent(to.content, component)),
 			)
-			components.value = components.value.filter((c) => c !== component)
+			components.value = components.value.filter((c) => !isSameComponent(c, component))
 		}
 
 		function saveComponent(name: string) {
@@ -590,18 +594,17 @@ export default defineComponent({
 					? availableColors[Math.floor(Math.random() * availableColors.length)]
 					: createRandomColor()
 
-			availableComponents.value = [
-				...availableComponents.value,
-				new Component(
-					name,
-					{
-						connections: [...connections.value],
-						inputs: outputs.value.length,
-						outputs: inputs.value,
-					},
-					color,
-				),
-			]
+			const newComponent = new Component(
+				name,
+				{
+					connections: [...connections.value],
+					inputs: outputs.value.length,
+					outputs: inputs.value,
+				},
+				color,
+			)
+
+			availableComponents.value = [...availableComponents.value, newComponent]
 
 			clear()
 		}
@@ -610,9 +613,7 @@ export default defineComponent({
 			components.value = []
 			connections.value = []
 			inputs.value = 1
-			outputs.value = [
-				{ state: true, key: uuid.v4() }
-			]
+			outputs.value = [{ state: true, key: uuid.v4() }]
 		}
 
 		const status = computed(() => {
@@ -661,7 +662,7 @@ export default defineComponent({
 				.fill(undefined)
 				.map((_, index) => {
 					const pin: IPin = { type: "global-input", index }
-					const connection = connections.value.find(({ to }) => deepEqual(to, pin))
+					const connection = connections.value.find(({ to }) => isSamePin(to, pin))
 
 					return {
 						index,
@@ -728,7 +729,7 @@ export default defineComponent({
 
 			if (pin.type === "output" && pin.content) {
 				const parameterConnections = connections.value.filter(
-					({ to }) => to.content === pin.content,
+					({ to }) => to.content && isSameComponent(to.content, pin.content as Component),
 				)
 				if (parameterConnections.length === pin.content.operatorInputs) {
 					const params = parameterConnections
