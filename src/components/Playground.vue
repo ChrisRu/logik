@@ -1,5 +1,10 @@
 <template>
-	<svg @contextmenu.prevent viewBox="0 0 1080 720" class="field" preserveAspectRatio="xMidYMid meet">
+	<svg
+		@contextmenu.prevent
+		viewBox="0 0 1080 720"
+		class="field"
+		preserveAspectRatio="xMidYMid meet"
+	>
 		<defs>
 			<filter id="active-shadow">
 				<feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#9c1919" flood-opacity="0.5" />
@@ -58,6 +63,22 @@
 					{{ component.name }}
 				</text>
 			</g>
+			<foreignObject
+				:x="72 + availableComponents.reduce((count, x) => count + x.width + 8, 0)"
+				y="6"
+				width="300"
+				height="40"
+				v-if="isCompleteComponent"
+			>
+				<div xmlns="http://www.w3.org/1999/xhtml">
+					<input
+						class="input"
+						placeholder="Component name"
+						maxlength="12"
+						@keyup.enter="saveComponent($event.target.value)"
+					/>
+				</div>
+			</foreignObject>
 		</g>
 
 		<!--DRAWING LINE-->
@@ -251,12 +272,23 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, computed } from "vue"
+import { ref, defineComponent, computed, toRaw } from "vue"
 import deepEqual from "fast-deep-equal"
 import * as uuid from "uuid"
-import { AND, INV, NAND, OR } from "../services/logic"
-import { IPoint, IPin, Component, IConnection, compute } from "../services/computer"
+import {
+	IPoint,
+	IPin,
+	Component,
+	IConnection,
+	compute,
+	AND,
+	INV,
+	OR,
+	NAND,
+	evaluate,
+} from "../services/computer"
 import { createDragFunction, getTouchPos } from "../services/drag"
+import { colors, createRandomColor } from "../services/colors"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
@@ -276,7 +308,6 @@ export default defineComponent({
 		const outputs = ref<IOutput[]>([
 			{ key: uuid.v4(), state: true },
 			{ key: uuid.v4(), state: false },
-			{ key: uuid.v4(), state: true },
 		])
 
 		const drawingLine = ref<{
@@ -288,10 +319,10 @@ export default defineComponent({
 		})
 
 		const availableComponents = ref([
-			new Component("INV", INV, "#dc5fdc"),
-			new Component("AND", AND, "#feb953"),
-			new Component("OR", OR, "#953feb"),
-			new Component("NAND", NAND, "#69be53"),
+			new Component("INV", INV, colors[0]),
+			new Component("AND", AND, colors[1]),
+			new Component("OR", OR, colors[2]),
+			new Component("NAND", NAND, colors[3]),
 		])
 
 		const components = ref<Component[]>([])
@@ -349,16 +380,25 @@ export default defineComponent({
 		}
 
 		const draw = createDragFunction<IPin>({
-			onStart: (pin) => (drawingLine.value.pin = pin),
-			onUpdate: (point) => (drawingLine.value.end = point),
-			onStop: () => (drawingLine.value = { pin: null, end: null }),
+			onStart(pin) {
+				drawingLine.value.pin = pin
+			},
+			onUpdate(point) {
+				drawingLine.value.end = point
+			},
+			onStop() {
+				drawingLine.value = { pin: null, end: null }
+			},
 		})
 
 		const move = createDragFunction<Component>({
 			withPointerOffset: true,
-			onUpdate: ({ x, y }, component) => {
+			onStart(component) {
+				components.value = [...components.value.filter((c) => c !== component), component]
+			},
+			onUpdate({ x, y }, component) {
 				component.x = Math.min(Math.max(64, x), 1080 - component.width - 64)
-				component.y = Math.min(Math.max(64, y), 720 - component.height)
+				component.y = Math.min(Math.max(50, y), 720 - component.height)
 			},
 		})
 
@@ -369,20 +409,12 @@ export default defineComponent({
 				return
 			}
 
-			let point = root.createSVGPoint()
-
-			getTouchPos(event, point)
-
-			const rootTransformMatrix = root.getScreenCTM()?.inverse()
-
-			point = point.matrixTransform(rootTransformMatrix)
-
 			const component = new Component(
 				componentRef.name,
 				componentRef.operator,
 				componentRef.color,
-				point.x + 64,
-				point.y + 64,
+				64 + 32,
+				50 + 32,
 			)
 
 			components.value = [...components.value, component]
@@ -545,6 +577,48 @@ export default defineComponent({
 			components.value = components.value.filter((c) => c !== component)
 		}
 
+		function saveComponent(name: string) {
+			name = name.trim().toUpperCase()
+			if (!name) {
+				return
+			}
+
+			const availableColors = colors.filter(
+				(color) => !availableComponents.value.some((component) => component.color === color),
+			)
+			const color =
+				availableColors.length > 0
+					? availableColors[Math.floor(Math.random() * availableColors.length)]
+					: createRandomColor()
+
+			const rawConnections = toRaw(connections.value)
+
+			availableComponents.value = [
+				...availableComponents.value,
+				new Component(
+					name,
+					{
+						connections: [...rawConnections],
+						inputs: rawConnections.filter((x) => x.from.type === "global-output").length,
+						outputs: rawConnections.filter((x) => x.to.type === "global-input").length,
+					},
+					color,
+				),
+			]
+
+			clear()
+		}
+
+		function clear() {
+			components.value = []
+			connections.value = []
+			inputs.value = 1
+			outputs.value = [
+				{ state: true, key: uuid.v4() },
+				{ state: false, key: uuid.v4() },
+			]
+		}
+
 		const status = computed(() => {
 			const turnedOnPins = compute(
 				connections.value,
@@ -665,7 +739,7 @@ export default defineComponent({
 						.sort((a, b) => a.to.index - b.to.index)
 						.map(({ from }) => status.value.turnedOnPins.has(from))
 
-					return pin.content.operator(...params)[pin.index - pin.content.operatorInputs]
+					return evaluate(pin.content.operator, params)[pin.index - pin.content.operatorInputs]
 				}
 			}
 
@@ -690,6 +764,13 @@ export default defineComponent({
 			}
 		})
 
+		const isCompleteComponent = computed(() => {
+			const hasInput = connections.value.some(({ to }) => to.type === "global-input")
+			const hasOutput = connections.value.some(({ from }) => from.type === "global-output")
+
+			return hasInput && hasOutput
+		})
+
 		return {
 			inputs: calculatedInputs,
 			outputs: calculatedOutputs,
@@ -701,16 +782,18 @@ export default defineComponent({
 			drawingLineStatus,
 			drawingLineStart,
 			drawingLine,
-			move,
-			createAndMove,
+			calculatePath,
+			addOutput,
+			addInput,
+			clearPinConnections,
 			draw,
 			endDraw,
 			endDrawOnComponent,
 			endDrawOnNewPin,
-			calculatePath,
-			clearPinConnections,
-			addOutput,
-			addInput,
+			move,
+			createAndMove,
+			isCompleteComponent,
+			saveComponent,
 		}
 	},
 })
@@ -721,6 +804,7 @@ $bg: #212121;
 $pin: #444;
 $off: #888;
 $on: #e03b3b;
+$font: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
 .field {
 	box-sizing: border-box;
@@ -824,7 +908,7 @@ $on: #e03b3b;
 }
 
 text {
-	font-family: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	font-family: $font;
 	fill: white;
 	font-weight: 500;
 	letter-spacing: 0.3px;
@@ -838,5 +922,23 @@ text {
 	position: absolute;
 	top: 5rem;
 	left: 5rem;
+}
+
+.input {
+	border: 2px solid #181818;
+	background: #212121;
+	box-sizing: border-box;
+	text-transform: uppercase;
+	margin-top: 2px;
+	margin-left: 2px;
+	width: 240px;
+	font-size: 16px;
+	padding: 5px 10px 3px;
+	color: #fff;
+	font-family: $font;
+
+	&:disabled {
+		visibility: hidden;
+	}
 }
 </style>

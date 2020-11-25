@@ -1,10 +1,25 @@
-import * as uuid from 'uuid'
+import * as uuid from "uuid"
 import calculateSize from "calculate-size"
-import { IOperator } from "./logic"
+
+export type IOperator = (...params: (boolean | 0 | 1)[]) => boolean[]
+
+export const INV: IOperator = (a) => [!a]
+
+export const AND: IOperator = (a, b) => [!!a && !!b]
+
+export const NAND: IOperator = (a, b) => INV(...AND(a, b))
+
+export const OR: IOperator = (a, b) => NAND(...INV(a), ...INV(b))
 
 export interface IPoint {
 	x: number
 	y: number
+}
+
+export interface ICustomComponent {
+	connections: IConnection[]
+	outputs: number
+	inputs: number
 }
 
 export interface IPin {
@@ -25,21 +40,30 @@ export class Component implements IPoint {
 	key: string
 	operatorInputs: number
 	operatorOutputs: number
-	operator: IOperator
+	operator: IOperator | ICustomComponent
 	color: string
 	name: string
 	x: number
 	y: number
 
-	constructor(name: string, operator: IOperator, color: string, x: number = 0, y: number = 0) {
+	constructor(
+		name: string,
+		operator: IOperator | ICustomComponent,
+		color: string,
+		x: number = 0,
+		y: number = 0,
+	) {
 		this.key = uuid.v4()
 		this.name = name
 		this.operator = operator
 		this.color = color
 		this.x = x
 		this.y = y
-		this.operatorInputs = operator.length
-		this.operatorOutputs = operator(...Array(this.operatorInputs).fill(false)).length
+		this.operatorInputs = typeof operator === "function" ? operator.length : operator.inputs
+		this.operatorOutputs =
+			typeof operator === "function"
+				? operator(...Array(this.operatorInputs).fill(false)).length
+				: operator.outputs
 	}
 
 	get height() {
@@ -57,7 +81,26 @@ export class Component implements IPoint {
 	}
 }
 
-export function compute(connections: IConnection[], outputs: boolean[]) {
+export function evaluate(operator: IOperator | ICustomComponent, outputs: boolean[]): boolean[] {
+	if (typeof operator === "function") {
+		return operator(...outputs)
+	}
+
+	const pins = Array.from(compute(operator.connections, outputs))
+		.filter(({ type }) => type === "global-input")
+		.map(({ index }) => index)
+
+	const output = Array(operator.outputs).fill(false)
+	for (const { to } of operator.connections) {
+		if (to.type === "global-input") {
+			output[to.index] = pins.includes(to.index)
+		}
+	}
+
+	return output
+}
+
+export function compute(connections: IConnection[], outputs: boolean[]): Set<IPin> {
 	const turnedOnPins = new Set<IPin>()
 	const turnedOffPins = new Set<IPin>()
 
@@ -78,8 +121,14 @@ export function compute(connections: IConnection[], outputs: boolean[]) {
 
 					if (outputs[current.index]) {
 						turnedOnPins.add(from)
+						if (to.type === "global-input") {
+							turnedOnPins.add(to)
+						}
 					} else {
 						turnedOffPins.add(from)
+						if (to.type === "global-input") {
+							turnedOnPins.add(to)
+						}
 					}
 				}
 			}
@@ -106,19 +155,27 @@ export function compute(connections: IConnection[], outputs: boolean[]) {
 					turnedOnPins.has(from) ? true : turnedOffPins.has(from) ? false : undefined,
 				)
 			if (params.includes(undefined)) {
-				console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}. Circular structure?`)
+				console.warn(
+					`Wiring incomplete for ${current.type} ${current.content?.name}. Circular structure?`,
+				)
 				continue
 			}
 
-			const status = current.content?.operator(...(params as boolean[]))
+			const status = evaluate(current.content?.operator, params as boolean[])
 
 			for (const { from, to } of connections) {
 				if (from.content === current.content) {
 					const statusIndex = from.index - current.content.operatorInputs
 					if (status[statusIndex]) {
 						turnedOnPins.add(from)
+						if (to.type === "global-input") {
+							turnedOnPins.add(to)
+						}
 					} else {
 						turnedOffPins.add(from)
+						if (to.type === "global-input") {
+							turnedOffPins.add(to)
+						}
 					}
 
 					queue.push(to)
