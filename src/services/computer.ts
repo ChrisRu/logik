@@ -68,12 +68,13 @@ export function isSameComponent(a: Component, b: Component): boolean {
 const componentPadding = 32
 
 export class Component implements IPoint {
-	key: string
-	operatorInputs: number
-	operatorOutputs: number
-	operator: IOperator | ICustomComponent
-	color: string
-	name: string
+	readonly key: string
+	readonly operatorInputs: number
+	readonly operatorOutputs: number
+	readonly operator: IOperator | ICustomComponent
+	readonly color: string
+	readonly name: string
+	canBeDeleted: boolean
 	x: number
 	y: number
 
@@ -95,6 +96,12 @@ export class Component implements IPoint {
 			typeof operator === "function"
 				? operator(...Array(this.operatorInputs).fill(false)).length
 				: operator.outputs
+		this.canBeDeleted = true
+	}
+
+	disableDelete(): this {
+		this.canBeDeleted = false
+		return this
 	}
 
 	get height() {

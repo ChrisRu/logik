@@ -34,7 +34,7 @@
 
 		<!-- DRAWING LINE -->
 		<path
-			v-if="drawingLineStart !== null && drawingLine.end !== null"
+			v-if="drawingLineStart && drawingLine.end"
 			:class="drawingLineStatus ? 'active-stroke' : 'inactive-stroke'"
 			:d="calculatePath(drawingLineStart, drawingLine.end)"
 			fill="none"
@@ -236,6 +236,7 @@
 					height="34"
 					:width="component.width"
 					@mousedown.left="createAndMove($event, component)"
+					@mousedown.right="verifyDeleteComponent(component)"
 				/>
 				<text
 					fill="white"
@@ -279,6 +280,20 @@
 			</foreignObject>
 		</g>
 
+		<!-- CONFIRM DELETE BUTTON -->
+		<foreignObject x="0" y="0" width="1080" height="720" v-if="componentToBeDeleted">
+			<modal
+				confirmMessage="Delete"
+				@accept="deleteComponent(componentToBeDeleted)"
+				@close="(componentToBeDeleted = null)"
+			>
+				Are you sure you want to permanently delete the
+				<u
+					><strong>{{ componentToBeDeleted.name }}</strong></u
+				>
+				component?
+			</modal>
+		</foreignObject>
 	</svg>
 </template>
 
@@ -302,6 +317,7 @@ import {
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
 import TruthTable from "./TruthTable.vue"
+import Modal from "./Modal.vue"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
@@ -317,6 +333,7 @@ export default defineComponent({
 	name: "Playground",
 	components: {
 		TruthTable,
+		Modal,
 	},
 	setup() {
 		const inputCount = ref(1)
@@ -331,16 +348,33 @@ export default defineComponent({
 			end: null,
 		})
 
+		const componentToBeDeleted = ref<Component | null>(null)
+
 		const availableComponents = ref([
-			new Component("INV", INV, colors[0]),
-			new Component("AND", AND, colors[1]),
+			new Component("INV", INV, colors[0]).disableDelete(),
+			new Component("AND", AND, colors[1]).disableDelete(),
 			new Component("OR", OR, colors[2]),
 			new Component("NAND", NAND, colors[3]),
 		])
 
-		const components = ref<Component[]>([])
+		const components = ref<Component[]>([new Component("INV", INV, colors[0], 500, 300)])
 
 		const connections = ref<IConnection[]>([])
+
+		function verifyDeleteComponent(component: Component) {
+			if (component.canBeDeleted) {
+				componentToBeDeleted.value = component
+			}
+		}
+
+		function deleteComponent(component: Component) {
+			componentToBeDeleted.value = null	
+			if (component.canBeDeleted) {
+				availableComponents.value = availableComponents.value.filter(
+					(c) => !isSameComponent(c, component),
+				)
+			}
+		}
 
 		function addOutput(): void {
 			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
@@ -809,6 +843,9 @@ export default defineComponent({
 			createAndMove,
 			isCompleteComponent,
 			saveComponent,
+			verifyDeleteComponent,
+			deleteComponent,
+			componentToBeDeleted,
 		}
 	},
 })
