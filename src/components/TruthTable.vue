@@ -10,7 +10,9 @@
 					{{ param ? "1" : "0" }}
 				</td>
 				<td
-					:class="`table-cell table-cell-output table-cell-${output ? '' : 'in'}active`"
+					:class="`table-cell table-cell-output table-cell-${output ? '' : 'in'}active ${
+						index === 0 ? 'table-cell-output-first' : ''
+					}`"
 					:key="index"
 					v-for="(output, index) in row.output"
 				>
@@ -61,12 +63,12 @@ export default defineComponent({
 	},
 	setup({ component }) {
 		const permutations = uniqueBooleanArrays(
-			Array(component.operatorInputs + 1)
+			Array((component.operatorOutputs + 1) ** 2)
 				.fill(0)
 				.map((_, index) => index)
 				.flatMap((paramIndex) =>
 					permute(
-						Array(component.operatorOutputs)
+						Array(component.operatorInputs)
 							.fill(0)
 							.map((_, valueIndex) => paramIndex > valueIndex),
 					),
@@ -94,23 +96,29 @@ $off-color: rgba(255, 255, 255, 0.5);
 
 .table {
 	background: $bg-params;
-	color: $on-color;
-	margin: 2rem;
-	padding: 0.5rem;
 	border-collapse: collapse;
-	font-weight: bold;
 	border-radius: 3px;
+	color: $on-color;
+	font-weight: bold;
+	border: 1px solid $border;
 }
 
 .table-cell {
-	text-align: center;
-	padding: 0.1rem 0.5rem;
-	min-width: 20px;
 	max-width: 0;
+	min-width: 20px;
+	padding: 0.1rem 0.5rem;
+	text-align: center;
+
+	&-param {
+		background: $bg-params;
+	}
 
 	&-output {
 		background: $bg-output;
-		border-left: 1px solid $border;
+
+		&-first {
+			border-left: 1px solid $border;
+		}
 	}
 
 	&-inactive {

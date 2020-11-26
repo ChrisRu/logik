@@ -117,7 +117,7 @@ export function evaluate(operator: IOperator | ICustomComponent, outputs: boolea
 		return operator(...outputs)
 	}
 
-	const pins = Array.from(compute(operator.connections, outputs))
+	const pins = Array.from(computeTurnedOnPins(operator.connections, outputs))
 		.filter(({ type }) => type === "global-input")
 		.map(({ index }) => index)
 
@@ -131,7 +131,7 @@ export function evaluate(operator: IOperator | ICustomComponent, outputs: boolea
 	return output
 }
 
-export function compute(connections: IConnection[], outputs: boolean[]): Set<IPin> {
+export function computeTurnedOnPins(connections: IConnection[], outputs: boolean[]): Set<IPin> {
 	const turnedOnPins = new Set<IPin>()
 	const turnedOffPins = new Set<IPin>()
 

@@ -10,7 +10,7 @@ import {
 	isSameComponent,
 	isSamePin,
 	evaluate,
-	compute,
+	computeTurnedOnPins,
 	IConnection,
 } from "../computer"
 import * as uuid from "uuid"
@@ -310,6 +310,8 @@ it("should compute custom INV component", () => {
 		},
 	]
 
-	expect(compute(connections, [true])).toEqual(new Set([connections[0].from]))
-	expect(compute(connections, [false])).toEqual(new Set([connections[1].from, connections[1].to]))
+	expect(computeTurnedOnPins(connections, [true])).toEqual(new Set([connections[0].from]))
+	expect(computeTurnedOnPins(connections, [false])).toEqual(
+		new Set([connections[1].from, connections[1].to]),
+	)
 })

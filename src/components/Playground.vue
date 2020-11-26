@@ -32,56 +32,7 @@
 			</filter>
 		</defs>
 
-		<!-- Component Picker -->
-		<g>
-			<rect x="64" y="0" width="952" height="50" fill="#282828" />
-			<g
-				v-for="(component, index) in availableComponents"
-				:key="component.name"
-				@mousedown.left="createAndMove($event, component)"
-			>
-				<rect
-					class="component-picker"
-					fill="#444"
-					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
-					y="8"
-					height="34"
-					:width="component.width"
-				/>
-				<text
-					fill="white"
-					font-size="16"
-					dominant-baseline="middle"
-					text-anchor="middle"
-					:x="
-						72 +
-						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
-						component.width / 2
-					"
-					y="27"
-				>
-					{{ component.name }}
-				</text>
-			</g>
-			<foreignObject
-				:x="72 + availableComponents.reduce((count, x) => count + x.width + 8, 0)"
-				y="6"
-				width="300"
-				height="40"
-				v-if="isCompleteComponent"
-			>
-				<div xmlns="http://www.w3.org/1999/xhtml">
-					<input
-						class="input"
-						placeholder="Component name"
-						maxlength="12"
-						@keyup.enter="saveComponent($event.target.value)"
-					/>
-				</div>
-			</foreignObject>
-		</g>
-
-		<!--DRAWING LINE-->
+		<!-- DRAWING LINE -->
 		<path
 			v-if="drawingLineStart !== null && drawingLine.end !== null"
 			:class="drawingLineStatus ? 'active-stroke' : 'inactive-stroke'"
@@ -93,7 +44,7 @@
 			stroke-linejoin="round"
 		/>
 
-		<!--CONNECTIONS-->
+		<!-- CONNECTIONS -->
 		<path
 			v-for="connection in connections"
 			:key="connection.key"
@@ -106,7 +57,7 @@
 			stroke-linejoin="round"
 		/>
 
-		<!--LEFT SIDE OUTPUTS-->
+		<!-- LEFT SIDE OUTPUTS -->
 		<g class="sidebar sidebar-left">
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
 			<g v-for="output in outputs" :key="output.key" @mouseup.left="endDraw(output.pin)">
@@ -126,7 +77,7 @@
 					class="pin-arrow"
 				/>
 				<circle
-					:class="`toggleable ${output.active ? 'active' : 'inactive'}-bg`"
+					:class="`toggleable ${output.active ? '' : 'in'}active-bg`"
 					:cx="output.location.x - 48"
 					:cy="output.location.y"
 					@click="output.toggle()"
@@ -167,7 +118,7 @@
 			</g>
 		</g>
 
-		<!--COMPONENTS-->
+		<!-- COMPONENTS -->
 		<g v-for="component in components" :key="component.key" class="component">
 			<rect
 				:x="component.content.x"
@@ -215,7 +166,7 @@
 			</text>
 		</g>
 
-		<!--RIGHT SIDE INPUTS-->
+		<!-- RIGHT SIDE INPUTS -->
 		<g class="sidebar sidebar-right">
 			<rect x="1016" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
 			<g v-for="input in inputs" :key="input.index" @mouseup.left="endDraw(input.pin)">
@@ -268,6 +219,66 @@
 				/>
 			</g>
 		</g>
+
+		<!-- COMPONENT PICKER -->
+		<g>
+			<rect x="64" y="0" width="952" height="50" fill="#282828" />
+			<g
+				class="component-picker"
+				v-for="(component, index) in availableComponents"
+				:key="component.name"
+			>
+				<rect
+					class="component-picker-button"
+					fill="#444"
+					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					y="8"
+					height="34"
+					:width="component.width"
+					@mousedown.left="createAndMove($event, component)"
+				/>
+				<text
+					fill="white"
+					font-size="16"
+					dominant-baseline="middle"
+					text-anchor="middle"
+					:x="
+						72 +
+						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
+						component.width / 2
+					"
+					y="27"
+				>
+					{{ component.name }}
+				</text>
+				<foreignObject
+					class="truth-table"
+					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					y="58"
+					width="1"
+					height="1"
+				>
+					<truth-table :component="component" />
+				</foreignObject>
+			</g>
+			<foreignObject
+				:x="72 + availableComponents.reduce((count, x) => count + x.width + 8, 0)"
+				y="6"
+				width="1"
+				height="1"
+				v-if="isCompleteComponent"
+			>
+				<div xmlns="http://www.w3.org/1999/xhtml">
+					<input
+						class="input"
+						placeholder="Component name"
+						maxlength="12"
+						@keyup.enter="saveComponent($event.target.value)"
+					/>
+				</div>
+			</foreignObject>
+		</g>
+
 	</svg>
 </template>
 
@@ -279,7 +290,7 @@ import {
 	IPin,
 	Component,
 	IConnection,
-	compute,
+	computeTurnedOnPins,
 	AND,
 	INV,
 	OR,
@@ -290,6 +301,7 @@ import {
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
+import TruthTable from "./TruthTable.vue"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
@@ -303,8 +315,11 @@ interface IOutput {
 
 export default defineComponent({
 	name: "Playground",
+	components: {
+		TruthTable,
+	},
 	setup() {
-		const inputs = ref(1)
+		const inputCount = ref(1)
 
 		const outputs = ref<IOutput[]>([{ key: uuid.v4(), state: true }])
 
@@ -332,22 +347,22 @@ export default defineComponent({
 		}
 
 		function addInput(): void {
-			if (inputs.value < 6) {
-				inputs.value++
+			if (inputCount.value < 6) {
+				inputCount.value++
 			}
 		}
 
 		function removeInput(pin: IPin): void {
 			clearPinConnections(pin)
 
-			if (inputs.value > 1) {
+			if (inputCount.value > 1) {
 				for (const connection of connections.value) {
 					if (connection.to.type === "global-input" && connection.to.index > pin.index) {
 						connection.to.index--
 					}
 				}
 
-				inputs.value--
+				inputCount.value--
 			}
 		}
 
@@ -434,7 +449,7 @@ export default defineComponent({
 			} else if (type === "global-input") {
 				if (drawingLine.value.pin.type.endsWith("output")) {
 					addInput()
-					endDraw({ type, index: inputs.value - 1 })
+					endDraw({ type, index: inputCount.value - 1 })
 				}
 			} else {
 				throw new Error(`Unknown pin type: ${type}`)
@@ -448,7 +463,7 @@ export default defineComponent({
 
 			if (drawingLine.value.pin.type.endsWith("output")) {
 				const activePinIndexes = connections.value
-					.filter(({ to }) => to.content && isSameComponent(to.content, component.content))
+					.filter(({ to }) => "content" in to && isSameComponent(to.content, component.content))
 					.map(({ to }) => to.index)
 
 				if (activePinIndexes.length === component.inputPins.length) {
@@ -467,7 +482,9 @@ export default defineComponent({
 				}
 			} else {
 				const activePinIndexes = connections.value
-					.filter(({ from }) => from.content && isSameComponent(from.content, component.content))
+					.filter(
+						({ from }) => "content" in from && isSameComponent(from.content, component.content),
+					)
 					.map(({ from }) => from.index)
 
 				if (activePinIndexes.length === component.outputPins.length) {
@@ -504,7 +521,11 @@ export default defineComponent({
 				return
 			}
 
-			if (fromPin.content && toPin.content && isSameComponent(fromPin.content, toPin.content)) {
+			if (
+				"content" in fromPin &&
+				"content" in toPin &&
+				isSameComponent(fromPin.content, toPin.content)
+			) {
 				return
 			}
 
@@ -537,7 +558,7 @@ export default defineComponent({
 				case "global-input":
 					return {
 						x: 1000,
-						y: 360 + (pin.index - inputs.value / 2 + 0.5) * 80,
+						y: 360 + (pin.index - inputCount.value / 2 + 0.5) * 80,
 					}
 				case "output":
 					if (!pin.content) {
@@ -565,17 +586,14 @@ export default defineComponent({
 							(pin.index - pin.content.operatorInputs / 2) * 8 * 2.3 +
 							10,
 					}
-
-				default:
-					throw new Error(`Unknown pin type ${pin.type}`)
 			}
 		}
 
 		function removeComponent(component: Component): void {
 			connections.value = connections.value.filter(
 				({ from, to }) =>
-					(!from.content || !isSameComponent(from.content, component)) &&
-					(!to.content || !isSameComponent(to.content, component)),
+					(!("content" in from) || !isSameComponent(from.content, component)) &&
+					(!("content" in to) || !isSameComponent(to.content, component)),
 			)
 			components.value = components.value.filter((c) => !isSameComponent(c, component))
 		}
@@ -599,7 +617,7 @@ export default defineComponent({
 				{
 					connections: [...connections.value],
 					inputs: outputs.value.length,
-					outputs: inputs.value,
+					outputs: inputCount.value,
 				},
 				color,
 			)
@@ -612,12 +630,12 @@ export default defineComponent({
 		function clear() {
 			components.value = []
 			connections.value = []
-			inputs.value = 1
+			inputCount.value = 1
 			outputs.value = [{ state: true, key: uuid.v4() }]
 		}
 
 		const status = computed(() => {
-			const turnedOnPins = compute(
+			const turnedOnPins = computeTurnedOnPins(
 				connections.value,
 				outputs.value.map(({ state }) => state),
 			)
@@ -658,7 +676,7 @@ export default defineComponent({
 		)
 
 		const calculatedInputs = computed(() =>
-			Array(inputs.value)
+			Array(inputCount.value)
 				.fill(undefined)
 				.map((_, index) => {
 					const pin: IPin = { type: "global-input", index }
@@ -729,7 +747,7 @@ export default defineComponent({
 
 			if (pin.type === "output" && pin.content) {
 				const parameterConnections = connections.value.filter(
-					({ to }) => to.content && isSameComponent(to.content, pin.content as Component),
+					({ to }) => "content" in to && isSameComponent(to.content, pin.content as Component),
 				)
 				if (parameterConnections.length === pin.content.operatorInputs) {
 					const params = parameterConnections
@@ -753,7 +771,7 @@ export default defineComponent({
 		})
 
 		const addInputLocation = computed(() => {
-			const pinLocation = getPinLocation({ index: inputs.value, type: "global-input" })
+			const pinLocation = getPinLocation({ index: inputCount.value, type: "global-input" })
 
 			return {
 				x: pinLocation.x + 48,
@@ -817,11 +835,28 @@ $font: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	}
 
 	&-picker {
-		fill: $pin;
-		cursor: pointer;
+		&-button {
+			fill: $pin;
+			cursor: pointer;
+
+			&:hover {
+				fill: lighten($pin, 10%);
+			}
+		}
+
+		.truth-table {
+			pointer-events: none;
+			transition: opacity 0.1s;
+			transition-delay: 0;
+			opacity: 0;
+		}
 
 		&:hover {
-			fill: lighten($pin, 10%);
+			.truth-table {
+				transition: opacity 0.1s;
+				transition-delay: 750ms;
+				opacity: 1;
+			}
 		}
 	}
 }
@@ -913,6 +948,10 @@ text {
 	text-transform: uppercase;
 	pointer-events: none;
 	user-select: none;
+}
+
+foreignObject {
+	overflow: visible;
 }
 
 .truth-table-wrapper {
