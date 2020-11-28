@@ -11,6 +11,8 @@ export const NAND: IOperator = (a, b) => INV(...AND(a, b))
 
 export const OR: IOperator = (a, b) => NAND(...INV(a), ...INV(b))
 
+export const XOR: IOperator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
+
 export interface IPoint {
 	x: number
 	y: number

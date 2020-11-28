@@ -2,7 +2,9 @@
 	<div class="wrapper">
 		<div class="modal">
 			<div class="title-wrapper">
-				<span class="title"><slot /></span>
+				<span class="title">
+					<slot></slot>
+				</span>
 			</div>
 			<div class="actions">
 				<button class="button" @click="onClose()">Cancel</button>

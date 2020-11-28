@@ -1,15 +1,18 @@
 <template>
 	<playground />
+	<notification />
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue"
+import Notification from "./components/Notification.vue"
 import Playground from "./components/Playground.vue"
 
 export default defineComponent({
 	name: "App",
 	components: {
 		Playground,
+		Notification,
 	},
 })
 </script>

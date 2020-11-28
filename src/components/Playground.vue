@@ -285,7 +285,7 @@
 			<modal
 				confirmMessage="Delete"
 				@accept="deleteComponent(componentToBeDeleted)"
-				@close="(componentToBeDeleted = null)"
+				@close="componentToBeDeleted = null"
 			>
 				Are you sure you want to permanently delete the
 				<u
@@ -318,6 +318,7 @@ import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
+import { computeTruthTable, isSameTruthTable, truthTables } from "../services/truthTable"
 
 function calculatePath(from: IPoint, to: IPoint) {
 	return `M ${from.x},${from.y}
@@ -368,7 +369,7 @@ export default defineComponent({
 		}
 
 		function deleteComponent(component: Component) {
-			componentToBeDeleted.value = null	
+			componentToBeDeleted.value = null
 			if (component.canBeDeleted) {
 				availableComponents.value = availableComponents.value.filter(
 					(c) => !isSameComponent(c, component),
@@ -659,6 +660,26 @@ export default defineComponent({
 			availableComponents.value = [...availableComponents.value, newComponent]
 
 			clear()
+
+			setTimeout(() => {
+				const truthTable = computeTruthTable(newComponent)
+
+				let message = ""
+
+				if (newComponent.name === "XOR" && !isSameTruthTable(truthTables.XOR, truthTable)) {
+					message = "You can name this mess an XOR, but that won't make it behave like an XOR"
+				} else if (isSameTruthTable(truthTables.NOTHING, truthTable)) {
+					message = "That doesn't seem to useful of a component now, does it?"
+				} else if (isSameTruthTable(truthTables.INV, truthTable)) {
+					message = "I'm pretty sure you already got a similar component to this, friend"
+				} else if (isSameTruthTable(truthTables.AND, truthTable)) {
+					message = "Another AND gate, daring today are we"
+				}
+
+				if (message) {
+					window.dispatchEvent(new CustomEvent("logik-hint", { detail: message }))
+				}
+			}, 0)
 		}
 
 		function clear() {
@@ -858,6 +879,21 @@ $off: #888;
 $on: #e03b3b;
 $font: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
+text {
+	font-family: $font;
+	fill: white;
+	font-weight: 500;
+	letter-spacing: 0.3px;
+	padding-top: 2px;
+	text-transform: uppercase;
+	pointer-events: none;
+	user-select: none;
+}
+
+foreignObject {
+	overflow: visible;
+}
+
 .field {
 	box-sizing: border-box;
 	background: $bg;
@@ -870,30 +906,30 @@ $font: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 			filter: url(#not-bright);
 		}
 	}
+}
 
-	&-picker {
-		&-button {
-			fill: $pin;
-			cursor: pointer;
+.component-picker-button {
+	fill: $pin;
+	cursor: pointer;
 
-			&:hover {
-				fill: lighten($pin, 10%);
-			}
-		}
+	&:hover {
+		fill: lighten($pin, 10%);
+	}
+}
 
+.component-picker {
+	.truth-table {
+		pointer-events: none;
+		transition: opacity 0.1s;
+		transition-delay: 0;
+		opacity: 0;
+	}
+
+	&:hover {
 		.truth-table {
-			pointer-events: none;
 			transition: opacity 0.1s;
-			transition-delay: 0;
-			opacity: 0;
-		}
-
-		&:hover {
-			.truth-table {
-				transition: opacity 0.1s;
-				transition-delay: 750ms;
-				opacity: 1;
-			}
+			transition-delay: 750ms;
+			opacity: 1;
 		}
 	}
 }
@@ -974,21 +1010,6 @@ $font: "Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	&:active {
 		cursor: grabbing;
 	}
-}
-
-text {
-	font-family: $font;
-	fill: white;
-	font-weight: 500;
-	letter-spacing: 0.3px;
-	padding-top: 2px;
-	text-transform: uppercase;
-	pointer-events: none;
-	user-select: none;
-}
-
-foreignObject {
-	overflow: visible;
 }
 
 .truth-table-wrapper {
