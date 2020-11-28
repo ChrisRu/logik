@@ -1,4 +1,4 @@
-import { AND, Component, INV, IOperator } from "../computer"
+import { AND, Component, INV, Operator, NOR, OR, XNOR } from "../computer"
 import { computeTruthTable, isSameTruthTable, truthTables } from "../truthTable"
 
 it("should get correct INV truth table", () => {
@@ -118,9 +118,12 @@ it("should be same AND truth table", () => {
 it("should have defined correct truth tables", () => {
 	expect(truthTables.NOTHING).toEqual(
 		computeTruthTable(
-			new Component("NOTHING", ((param: boolean) => [param]) as IOperator, "#008800"),
+			new Component("NOTHING", ((param: boolean) => [param]) as Operator, "#008800"),
 		),
 	)
+	expect(truthTables.OR).toEqual(computeTruthTable(new Component("OR", OR, "#008800")))
 	expect(truthTables.AND).toEqual(computeTruthTable(new Component("AND", AND, "#008800")))
 	expect(truthTables.INV).toEqual(computeTruthTable(new Component("INV", INV, "#008800")))
+	expect(truthTables.NOR).toEqual(computeTruthTable(new Component("NOR", NOR, "#008800")))
+	expect(truthTables.XNOR).toEqual(computeTruthTable(new Component("NOR", XNOR, "#008800")))
 })

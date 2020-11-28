@@ -666,8 +666,18 @@ export default defineComponent({
 
 				let message = ""
 
-				if (newComponent.name === "XOR" && !isSameTruthTable(truthTables.XOR, truthTable)) {
-					message = "You can name this mess an XOR, but that won't make it behave like an XOR"
+				if (
+					(newComponent.name === "XOR" || newComponent.name === "X-OR") &&
+					!isSameTruthTable(truthTables.XOR, truthTable)
+				) {
+					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
+				} else if (
+					(newComponent.name === "XNOR" || newComponent.name === "X-NOR") &&
+					!isSameTruthTable(truthTables.XNOR, truthTable)
+				) {
+					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
+				} else if (newComponent.name === "NOR" && !isSameTruthTable(truthTables.NOR, truthTable)) {
+					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
 				} else if (isSameTruthTable(truthTables.NOTHING, truthTable)) {
 					message = "That doesn't seem to useful of a component now, does it?"
 				} else if (isSameTruthTable(truthTables.INV, truthTable)) {

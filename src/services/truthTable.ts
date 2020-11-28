@@ -93,10 +93,28 @@ export const truthTables = {
 		{ params: [false, true], output: [false] },
 		{ params: [true, true], output: [true] },
 	] as ITruthTable,
+	OR: [
+		{ params: [false, false], output: [false] },
+		{ params: [true, false], output: [true] },
+		{ params: [false, true], output: [true] },
+		{ params: [true, true], output: [true] },
+	] as ITruthTable,
 	XOR: [
 		{ params: [false, false], output: [false] },
 		{ params: [true, false], output: [true] },
 		{ params: [false, true], output: [true] },
 		{ params: [true, true], output: [false] },
+	] as ITruthTable,
+	NOR: [
+		{ params: [false, false], output: [true] },
+		{ params: [true, false], output: [false] },
+		{ params: [false, true], output: [false] },
+		{ params: [true, true], output: [false] },
+	] as ITruthTable,
+	XNOR: [
+		{ params: [false, false], output: [true] },
+		{ params: [true, false], output: [false] },
+		{ params: [false, true], output: [false] },
+		{ params: [true, true], output: [true] },
 	] as ITruthTable,
 }

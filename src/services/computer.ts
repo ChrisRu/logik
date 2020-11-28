@@ -1,17 +1,21 @@
 import * as uuid from "uuid"
 import calculateSize from "calculate-size"
 
-export type IOperator = (...params: (boolean | 0 | 1)[]) => boolean[]
+export type Operator = (...params: (boolean | 0 | 1)[]) => boolean[]
 
-export const INV: IOperator = (a) => [!a]
+export const INV: Operator = (a) => [!a]
 
-export const AND: IOperator = (a, b) => [!!a && !!b]
+export const AND: Operator = (a, b) => [!!a && !!b]
 
-export const NAND: IOperator = (a, b) => INV(...AND(a, b))
+export const NAND: Operator = (a, b) => INV(...AND(a, b))
 
-export const OR: IOperator = (a, b) => NAND(...INV(a), ...INV(b))
+export const OR: Operator = (a, b) => NAND(...INV(a), ...INV(b))
 
-export const XOR: IOperator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
+export const XOR: Operator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
+
+export const NOR: Operator = (a, b) => INV(...OR(a, b))
+
+export const XNOR: Operator = (a, b) => OR(...NOR(a, b), ...AND(a, b))
 
 export interface IPoint {
 	x: number
@@ -73,7 +77,7 @@ export class Component implements IPoint {
 	readonly key: string
 	readonly operatorInputs: number
 	readonly operatorOutputs: number
-	readonly operator: IOperator | ICustomComponent
+	readonly operator: Operator | ICustomComponent
 	readonly color: string
 	readonly name: string
 	canBeDeleted: boolean
@@ -82,7 +86,7 @@ export class Component implements IPoint {
 
 	constructor(
 		name: string,
-		operator: IOperator | ICustomComponent,
+		operator: Operator | ICustomComponent,
 		color: string,
 		x: number = 0,
 		y: number = 0,
@@ -121,7 +125,7 @@ export class Component implements IPoint {
 	}
 }
 
-export function evaluate(operator: IOperator | ICustomComponent, outputs: boolean[]): boolean[] {
+export function evaluate(operator: Operator | ICustomComponent, outputs: boolean[]): boolean[] {
 	if (typeof operator === "function") {
 		return operator(...outputs)
 	}

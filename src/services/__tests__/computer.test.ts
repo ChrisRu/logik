@@ -5,7 +5,7 @@ import {
 	OR,
 	Component,
 	ICustomComponent,
-	IOperator,
+	Operator,
 	IPin,
 	isSameComponent,
 	isSamePin,
@@ -16,8 +16,8 @@ import {
 import * as uuid from "uuid"
 
 it("should not be the same component", () => {
-	const TRUE: IOperator = () => [true]
-	const FALSE: IOperator = () => [false]
+	const TRUE: Operator = () => [true]
+	const FALSE: Operator = () => [false]
 
 	expect(
 		isSameComponent(new Component("x", TRUE, "#ff0000"), new Component("y", FALSE, "#000000")),
@@ -25,7 +25,7 @@ it("should not be the same component", () => {
 })
 
 it("should not be the same component, even though they have similar contents", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	expect(
 		isSameComponent(
@@ -36,7 +36,7 @@ it("should not be the same component, even though they have similar contents", (
 })
 
 it("should be the same component", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	const component = new Component("name", FALSE, "#000000")
 
@@ -44,7 +44,7 @@ it("should be the same component", () => {
 })
 
 it("should be the same component deserialized", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	const component1 = new Component("name", FALSE, "#000000")
 	const component2 = Object.assign(
@@ -56,7 +56,7 @@ it("should be the same component deserialized", () => {
 })
 
 it("should not be the same pin", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	const pin1: IPin = {
 		index: 0,
@@ -73,7 +73,7 @@ it("should not be the same pin", () => {
 })
 
 it("should not be the same pin with a different component", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	const pin1: IPin = {
 		index: 0,
@@ -105,7 +105,7 @@ it("should be the same global input pin", () => {
 })
 
 it("should be the same component pin", () => {
-	const FALSE: IOperator = () => [false]
+	const FALSE: Operator = () => [false]
 
 	const component1 = new Component("name", FALSE, "#000000")
 	const component2 = Object.assign(
@@ -129,7 +129,7 @@ it("should be the same component pin", () => {
 })
 
 it("should evaluate basic operator", () => {
-	const operator: IOperator = () => [false]
+	const operator: Operator = () => [false]
 
 	expect(evaluate(operator, [])).toEqual([false])
 })
