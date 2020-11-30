@@ -90,6 +90,7 @@
 				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
 				@click="addOutput()"
 				@mouseup.left="endDrawOnNewPin('global-output')"
+				@mousedown.left="draw($event, addOutput())"
 			>
 				<circle
 					:cx="addOutputLocation.x"
@@ -197,6 +198,7 @@
 				:class="`button-add ${inputs.length > 5 ? 'disabled' : ''}`"
 				@click="addInput()"
 				@mouseup.left="endDrawOnNewPin('global-input')"
+				@mousedown.left="draw($event, addInput())"
 			>
 				<circle :cx="addInputLocation.x" :cy="addInputLocation.y + 8" class="disabled-bg" r="16" />
 				<line
@@ -371,17 +373,27 @@ export default defineComponent({
 					(c) => !isSameComponent(c, component),
 				)
 			}
-			
+
 			storeComponents(availableComponents.value)
 		}
 
-		function addOutput(): void {
+		function addOutput() {
 			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
+
+			return {
+				type: 'global-output',
+				index: outputs.value.length - 1
+			}
 		}
 
-		function addInput(): void {
+		function addInput(): IPin {
 			if (inputCount.value < 6) {
 				inputCount.value++
+			}
+
+			return {
+				type: 'global-input',
+				index: inputCount.value - 1
 			}
 		}
 
@@ -561,6 +573,22 @@ export default defineComponent({
 			) {
 				return
 			}
+
+			// if ('new' in fromPin && fromPin.new) {
+			// 	if (fromPin.type === 'global-input') {
+			// 		addOutput()
+			// 		fromPin = {
+			// 			type: 'global-output',
+			// 			index: outputs.value.length - 1
+			// 		}
+			// 	} else {
+			// 		addInput()
+			// 		fromPin = {
+			// 			type: 'global-input',
+			// 			index: inputCount.value - 1
+			// 		}
+			// 	}
+			// }
 
 			if (fromPin.type.endsWith("input")) {
 				;[fromPin, toPin] = [toPin, fromPin]
