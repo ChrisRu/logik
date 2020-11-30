@@ -87,8 +87,7 @@
 			</g>
 
 			<g
-				:class="`button-add ${outputs.length > 5 ? 'disabled' : ''}`"
-				@click="addOutput()"
+				:class="`button-add ${outputs.length > 8 ? 'disabled' : ''}`"
 				@mouseup.left="endDrawOnNewPin('global-output')"
 				@mousedown.left="draw($event, addOutput())"
 			>
@@ -195,8 +194,7 @@
 				/>
 			</g>
 			<g
-				:class="`button-add ${inputs.length > 5 ? 'disabled' : ''}`"
-				@click="addInput()"
+				:class="`button-add ${inputs.length > 7 ? 'disabled' : ''}`"
 				@mouseup.left="endDrawOnNewPin('global-input')"
 				@mousedown.left="draw($event, addInput())"
 			>
@@ -237,8 +235,8 @@
 					y="8"
 					height="34"
 					:width="component.width"
+					@click.right="verifyDeleteComponent(component)"
 					@mousedown.left="createAndMove($event, component)"
-					@mousedown.right="verifyDeleteComponent(component)"
 				/>
 				<text
 					fill="white"
@@ -381,19 +379,21 @@ export default defineComponent({
 			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
 
 			return {
-				type: 'global-output',
-				index: outputs.value.length - 1
+				type: "global-output",
+				index: outputs.value.length - 1,
 			}
 		}
 
 		function addInput(): IPin {
-			if (inputCount.value < 6) {
-				inputCount.value++
+			inputCount.value++
+
+			if (drawingLine.value.pin) {
+				drawingLine.value.pin = null
 			}
 
 			return {
-				type: 'global-input',
-				index: inputCount.value - 1
+				type: "global-input",
+				index: inputCount.value - 1,
 			}
 		}
 
@@ -440,6 +440,7 @@ export default defineComponent({
 		const draw = createDragFunction<IPin>({
 			onStart(pin) {
 				drawingLine.value.pin = pin
+				drawingLine.value.end = null
 			},
 			onUpdate(point) {
 				drawingLine.value.end = point
@@ -447,6 +448,7 @@ export default defineComponent({
 			onStop() {
 				drawingLine.value = { pin: null, end: null }
 			},
+			padding: 8,
 		})
 
 		const move = createDragFunction<Component>({
@@ -458,8 +460,13 @@ export default defineComponent({
 				]
 			},
 			onUpdate({ x, y }, component) {
-				component.x = Math.min(Math.max(64, x), 1080 - component.width - 64)
-				component.y = Math.min(Math.max(50, y), 720 - component.height)
+				const maxLeft = 64
+				const maxTop = 50
+				const maxRight = 1080 - component.width - 64
+				const maxBottom = 720 - component.height
+
+				component.x = Math.min(Math.max(maxLeft, x), maxRight)
+				component.y = Math.min(Math.max(maxTop, y), maxBottom)
 			},
 		})
 
@@ -574,22 +581,6 @@ export default defineComponent({
 				return
 			}
 
-			// if ('new' in fromPin && fromPin.new) {
-			// 	if (fromPin.type === 'global-input') {
-			// 		addOutput()
-			// 		fromPin = {
-			// 			type: 'global-output',
-			// 			index: outputs.value.length - 1
-			// 		}
-			// 	} else {
-			// 		addInput()
-			// 		fromPin = {
-			// 			type: 'global-input',
-			// 			index: inputCount.value - 1
-			// 		}
-			// 	}
-			// }
-
 			if (fromPin.type.endsWith("input")) {
 				;[fromPin, toPin] = [toPin, fromPin]
 			}
@@ -614,12 +605,12 @@ export default defineComponent({
 				case "global-output":
 					return {
 						x: 80,
-						y: 360 + (pin.index - outputs.value.length / 2 + 0.5) * 80,
+						y: 360 + (pin.index - outputs.value.length / 2 + 0.5) * (80 - outputs.value.length * 2),
 					}
 				case "global-input":
 					return {
 						x: 1000,
-						y: 360 + (pin.index - inputCount.value / 2 + 0.5) * 80,
+						y: 360 + (pin.index - inputCount.value / 2 + 0.5) * (80 - inputCount.value * 2),
 					}
 				case "output":
 					if (!pin.content) {

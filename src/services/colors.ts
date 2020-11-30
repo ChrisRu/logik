@@ -1,7 +1,5 @@
 export const colors = [
 	"#dc5fdc",
-	"#feb953",
-	"#953feb",
 	"#69be53",
 	"#6ca9a9",
 	"#cd9766",
@@ -9,6 +7,8 @@ export const colors = [
 	"#598fbf",
 	"#6c6c6c",
 	"#6567e1",
+	"#feb953",
+	"#953feb",
 ]
 
 const hexLetters = "0123456789abcdef"
