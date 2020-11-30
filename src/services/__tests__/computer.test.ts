@@ -4,7 +4,7 @@ import {
 	NAND,
 	OR,
 	Component,
-	ICustomComponent,
+	ICustomOperator,
 	Operator,
 	IPin,
 	isSameComponent,
@@ -169,7 +169,7 @@ it("should evaluate OR operator", () => {
 })
 
 it("should evaluate custom direct component", () => {
-	const operator: ICustomComponent = {
+	const operator: ICustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
@@ -207,7 +207,7 @@ it("should evaluate custom direct component", () => {
 it("should evaluate custom NOT component", () => {
 	const component = new Component("NOT", NOT, "#ff0000")
 
-	const operator: ICustomComponent = {
+	const operator: ICustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
@@ -245,7 +245,7 @@ it("should evaluate custom NOT component", () => {
 it("should evaluate custom NOT component", () => {
 	const component = new Component("NOT", NOT, "#ff0000")
 
-	const operator: ICustomComponent = {
+	const operator: ICustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),

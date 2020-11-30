@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"calculate-size": "^1.1.1",
+		"lz-string": "^1.4.4",
 		"uuid": "^8.3.1",
 		"vue": "^3.0.3"
 	},
@@ -17,7 +18,10 @@
 		"@babel/core": "^7.12.9",
 		"@babel/preset-env": "^7.12.7",
 		"@babel/preset-typescript": "^7.12.7",
+		"@types/babel__core": "^7.1.12",
+		"@types/babel__preset-env": "^7.9.1",
 		"@types/jest": "^26.0.15",
+		"@types/lz-string": "^1.3.34",
 		"@types/sass": "^1.16.0",
 		"@types/uuid": "^8.3.0",
 		"@vue/compiler-sfc": "^3.0.3",

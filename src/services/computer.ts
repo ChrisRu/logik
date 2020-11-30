@@ -22,7 +22,7 @@ export interface IPoint {
 	y: number
 }
 
-export interface ICustomComponent {
+export interface ICustomOperator {
 	connections: IConnection[]
 	outputs: number
 	inputs: number
@@ -77,7 +77,7 @@ export class Component implements IPoint {
 	readonly key: string
 	readonly operatorInputs: number
 	readonly operatorOutputs: number
-	readonly operator: Operator | ICustomComponent
+	readonly operator: Operator | ICustomOperator
 	readonly color: string
 	readonly name: string
 	canBeDeleted: boolean
@@ -86,7 +86,7 @@ export class Component implements IPoint {
 
 	constructor(
 		name: string,
-		operator: Operator | ICustomComponent,
+		operator: Operator | ICustomOperator,
 		color: string,
 		x: number = 0,
 		y: number = 0,
@@ -125,7 +125,7 @@ export class Component implements IPoint {
 	}
 }
 
-export function evaluate(operator: Operator | ICustomComponent, outputs: boolean[]): boolean[] {
+export function evaluate(operator: Operator | ICustomOperator, outputs: boolean[]): boolean[] {
 	if (typeof operator === "function") {
 		return operator(...outputs)
 	}

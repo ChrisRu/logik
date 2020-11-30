@@ -371,6 +371,8 @@ export default defineComponent({
 					(c) => !isSameComponent(c, component),
 				)
 			}
+			
+			storeComponents(availableComponents.value)
 		}
 
 		function addOutput(): void {
