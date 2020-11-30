@@ -111,7 +111,7 @@ export class Component implements IPoint {
 	}
 
 	get height() {
-		return Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 40)
+		return Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 30)
 	}
 
 	get width() {
