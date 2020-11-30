@@ -316,6 +316,7 @@ import {
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
+import { loadComponents, storeComponents } from "../services/storage"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
 import { computeTruthTable, isSameTruthTable, truthTables } from "../services/truthTable"
@@ -351,12 +352,9 @@ export default defineComponent({
 
 		const componentToBeDeleted = ref<Component | null>(null)
 
-		const availableComponents = ref([
-			new Component("NOT", NOT, colors[0]).disableDelete(),
-			new Component("AND", AND, colors[1]).disableDelete(),
-		])
+		const availableComponents = ref(loadComponents())
 
-		const components = ref<Component[]>([new Component("NOT", NOT, colors[0], 500, 300)])
+		const components = ref<Component[]>([])
 
 		const connections = ref<IConnection[]>([])
 
@@ -660,6 +658,8 @@ export default defineComponent({
 			clear()
 
 			setTimeout(() => {
+				storeComponents(availableComponents.value)
+
 				const truthTable = computeTruthTable(newComponent)
 
 				let message = ""

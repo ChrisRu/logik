@@ -60,12 +60,12 @@ export function computeTruthTable(component: Component): ITruthTable {
 	const permutations = uniqueBooleanArrays(
 		Array((component.operatorOutputs + 1) ** 2)
 			.fill(0)
-			.map((_, index) => index)
+			.map((_, index, total) => total.length - index - 1)
 			.flatMap((paramIndex) =>
 				permute(
 					Array(component.operatorInputs)
 						.fill(0)
-						.map((_, valueIndex) => paramIndex > valueIndex),
+						.map((_, valueIndex) => paramIndex <= valueIndex),
 				),
 			),
 	)
@@ -89,32 +89,32 @@ export const truthTables = {
 	] as ITruthTable,
 	AND: [
 		{ params: [false, false], output: [false] },
-		{ params: [true, false], output: [false] },
 		{ params: [false, true], output: [false] },
+		{ params: [true, false], output: [false] },
 		{ params: [true, true], output: [true] },
 	] as ITruthTable,
 	OR: [
 		{ params: [false, false], output: [false] },
-		{ params: [true, false], output: [true] },
 		{ params: [false, true], output: [true] },
+		{ params: [true, false], output: [true] },
 		{ params: [true, true], output: [true] },
 	] as ITruthTable,
 	XOR: [
 		{ params: [false, false], output: [false] },
-		{ params: [true, false], output: [true] },
 		{ params: [false, true], output: [true] },
+		{ params: [true, false], output: [true] },
 		{ params: [true, true], output: [false] },
 	] as ITruthTable,
 	NOR: [
 		{ params: [false, false], output: [true] },
-		{ params: [true, false], output: [false] },
 		{ params: [false, true], output: [false] },
+		{ params: [true, false], output: [false] },
 		{ params: [true, true], output: [false] },
 	] as ITruthTable,
 	XNOR: [
 		{ params: [false, false], output: [true] },
-		{ params: [true, false], output: [false] },
 		{ params: [false, true], output: [false] },
+		{ params: [true, false], output: [false] },
 		{ params: [true, true], output: [true] },
 	] as ITruthTable,
 }

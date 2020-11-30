@@ -21,11 +21,11 @@ it("should get correct AND truth table", () => {
 			output: [false],
 		},
 		{
-			params: [true, false],
+			params: [false, true],
 			output: [false],
 		},
 		{
-			params: [false, true],
+			params: [true, false],
 			output: [false],
 		},
 		{
@@ -100,11 +100,11 @@ it("should be same AND truth table", () => {
 				output: [false],
 			},
 			{
-				params: [true, false],
+				params: [false, true],
 				output: [false],
 			},
 			{
-				params: [false, true],
+				params: [true, false],
 				output: [false],
 			},
 			{
