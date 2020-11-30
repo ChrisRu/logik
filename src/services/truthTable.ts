@@ -1,30 +1,4 @@
-import { Component, evaluate, XOR } from "./computer"
-
-function permute<T>(xs: T[]): T[][] {
-	const result: T[][] = []
-
-	function permutor(arr: T[], m: T[] = []) {
-		if (arr.length === 0) {
-			result.push(m)
-		} else {
-			for (let i = 0; i < arr.length; i++) {
-				const curr = arr.slice()
-				const next = curr.splice(i, 1)
-				permutor(curr.slice(), m.concat(next))
-			}
-		}
-	}
-
-	permutor(xs)
-
-	return result
-}
-
-function uniqueBooleanArrays(xs: boolean[][]) {
-	const all = new Set(xs.map(String))
-
-	return Array.from(all).map((str) => str.split(",").map((value) => value === "true"))
-}
+import { Component, evaluate } from "./computer"
 
 export interface ITruthRow {
 	params: boolean[]
@@ -38,10 +12,10 @@ export function isSameTruthTable(a: ITruthTable, b: ITruthTable) {
 		return false
 	}
 
-	const aMap = Object.fromEntries(a.map((x) => [x.params.join("-"), x.output]))
-	const bMap = Object.fromEntries(b.map((x) => [x.params.join("-"), x.output]))
+	const aMap = Object.fromEntries(a.map(({ params, output }) => [params.join("-"), output]))
+	const bMap = Object.fromEntries(b.map(({ params, output }) => [params.join("-"), output]))
 
-	for (let key in aMap) {
+	for (const key in aMap) {
 		if (bMap[key]) {
 			const aOutput = aMap[key].join("-")
 			const bOutput = bMap[key].join("-")
@@ -56,26 +30,33 @@ export function isSameTruthTable(a: ITruthTable, b: ITruthTable) {
 	return true
 }
 
+function createBinaryArray(value: number, arraySize = 1): boolean[] {
+	const binaryArray = Array(arraySize).fill(false)
+	let i = binaryArray.length - 1
+
+	while (value > 0) {
+		if (value % 2 !== 0) {
+			binaryArray[i] = true
+		}
+
+		value = Math.floor(value / 2)
+		i--
+	}
+
+	return binaryArray
+}
+
 export function computeTruthTable(component: Component): ITruthTable {
-	const permutations = uniqueBooleanArrays(
-		Array((component.operatorOutputs + 1) ** 2)
-			.fill(0)
-			.map((_, index, total) => total.length - index - 1)
-			.flatMap((paramIndex) =>
-				permute(
-					Array(component.operatorInputs)
-						.fill(0)
-						.map((_, valueIndex) => paramIndex <= valueIndex),
-				),
-			),
-	)
+	return Array(2 ** component.operatorInputs)
+		.fill(undefined)
+		.map((_, index) => {
+			const params = createBinaryArray(index, component.operatorInputs)
 
-	const truthTable = permutations.map((params) => ({
-		params,
-		output: evaluate(component.operator, params),
-	}))
-
-	return truthTable
+			return {
+				params,
+				output: evaluate(component.operator, params),
+			}
+		})
 }
 
 export const truthTables = {
