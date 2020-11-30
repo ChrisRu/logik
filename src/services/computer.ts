@@ -3,17 +3,17 @@ import calculateSize from "calculate-size"
 
 export type Operator = (...params: (boolean | 0 | 1)[]) => boolean[]
 
-export const INV: Operator = (a) => [!a]
+export const NOT: Operator = (a) => [!a]
 
 export const AND: Operator = (a, b) => [!!a && !!b]
 
-export const NAND: Operator = (a, b) => INV(...AND(a, b))
+export const NAND: Operator = (a, b) => NOT(...AND(a, b))
 
-export const OR: Operator = (a, b) => NAND(...INV(a), ...INV(b))
+export const OR: Operator = (a, b) => NAND(...NOT(a), ...NOT(b))
 
 export const XOR: Operator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
 
-export const NOR: Operator = (a, b) => INV(...OR(a, b))
+export const NOR: Operator = (a, b) => NOT(...OR(a, b))
 
 export const XNOR: Operator = (a, b) => OR(...NOR(a, b), ...AND(a, b))
 

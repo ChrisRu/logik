@@ -83,7 +83,7 @@ export const truthTables = {
 		{ params: [false], output: [false] },
 		{ params: [true], output: [true] },
 	] as ITruthTable,
-	INV: [
+	NOT: [
 		{ params: [false], output: [true] },
 		{ params: [true], output: [false] },
 	] as ITruthTable,

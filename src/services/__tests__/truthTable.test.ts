@@ -1,8 +1,8 @@
-import { AND, Component, INV, Operator, NOR, OR, XNOR } from "../computer"
+import { AND, Component, NOT, Operator, NOR, OR, XNOR } from "../computer"
 import { computeTruthTable, isSameTruthTable, truthTables } from "../truthTable"
 
-it("should get correct INV truth table", () => {
-	expect(computeTruthTable(new Component("INV", INV, "#ff0000"))).toEqual([
+it("should get correct NOT truth table", () => {
+	expect(computeTruthTable(new Component("NOT", NOT, "#ff0000"))).toEqual([
 		{
 			params: [false],
 			output: [true],
@@ -39,13 +39,13 @@ it("should not be same empty truth table", () => {
 	expect(isSameTruthTable([], [])).toBeTruthy()
 })
 
-it("should not be same INV truth table empty", () => {
-	expect(isSameTruthTable(computeTruthTable(new Component("INV", INV, "#00ff00")), [])).toBeFalsy()
+it("should not be same NOT truth table empty", () => {
+	expect(isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [])).toBeFalsy()
 })
 
-it("should not be same INV truth table extra", () => {
+it("should not be same NOT truth table extra", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("INV", INV, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
 			{
 				params: [true],
 				output: [false],
@@ -62,9 +62,9 @@ it("should not be same INV truth table extra", () => {
 	).toBeFalsy()
 })
 
-it("should be same INV truth table", () => {
+it("should be same NOT truth table", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("INV", INV, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
 			{
 				params: [false],
 				output: [true],
@@ -77,9 +77,9 @@ it("should be same INV truth table", () => {
 	).toBeTruthy()
 })
 
-it("should be same INV truth table backwards", () => {
+it("should be same NOT truth table backwards", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("INV", INV, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
 			{
 				params: [true],
 				output: [false],
@@ -123,7 +123,7 @@ it("should have defined correct truth tables", () => {
 	)
 	expect(truthTables.OR).toEqual(computeTruthTable(new Component("OR", OR, "#008800")))
 	expect(truthTables.AND).toEqual(computeTruthTable(new Component("AND", AND, "#008800")))
-	expect(truthTables.INV).toEqual(computeTruthTable(new Component("INV", INV, "#008800")))
+	expect(truthTables.NOT).toEqual(computeTruthTable(new Component("NOT", NOT, "#008800")))
 	expect(truthTables.NOR).toEqual(computeTruthTable(new Component("NOR", NOR, "#008800")))
 	expect(truthTables.XNOR).toEqual(computeTruthTable(new Component("NOR", XNOR, "#008800")))
 })

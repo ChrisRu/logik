@@ -1,6 +1,6 @@
 import {
 	AND,
-	INV,
+	NOT,
 	NAND,
 	OR,
 	Component,
@@ -152,8 +152,8 @@ it("should evaluate AND operator", () => {
 	expect(evaluate(operator, [true, true])).toEqual([true])
 })
 
-it("should evaluate INV operator", () => {
-	const operator = INV
+it("should evaluate NOT operator", () => {
+	const operator = NOT
 
 	expect(evaluate(operator, [false])).toEqual([true])
 	expect(evaluate(operator, [true])).toEqual([false])
@@ -204,8 +204,8 @@ it("should evaluate custom direct component", () => {
 	expect(evaluate(operator, [true, true])).toEqual([true, true])
 })
 
-it("should evaluate custom INV component", () => {
-	const component = new Component("INV", INV, "#ff0000")
+it("should evaluate custom NOT component", () => {
+	const component = new Component("NOT", NOT, "#ff0000")
 
 	const operator: ICustomComponent = {
 		connections: [
@@ -242,8 +242,8 @@ it("should evaluate custom INV component", () => {
 	expect(evaluate(operator, [true])).toEqual([false])
 })
 
-it("should evaluate custom INV component", () => {
-	const component = new Component("INV", INV, "#ff0000")
+it("should evaluate custom NOT component", () => {
+	const component = new Component("NOT", NOT, "#ff0000")
 
 	const operator: ICustomComponent = {
 		connections: [
@@ -280,8 +280,8 @@ it("should evaluate custom INV component", () => {
 	expect(evaluate(operator, [true])).toEqual([false])
 })
 
-it("should compute custom INV component", () => {
-	const component = new Component("INV", INV, "#ff0000")
+it("should compute custom NOT component", () => {
+	const component = new Component("NOT", NOT, "#ff0000")
 
 	const connections: IConnection[] = [
 		{

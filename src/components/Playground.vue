@@ -307,7 +307,7 @@ import {
 	IConnection,
 	computeTurnedOnPins,
 	AND,
-	INV,
+	NOT,
 	OR,
 	NAND,
 	evaluate,
@@ -352,13 +352,11 @@ export default defineComponent({
 		const componentToBeDeleted = ref<Component | null>(null)
 
 		const availableComponents = ref([
-			new Component("INV", INV, colors[0]).disableDelete(),
+			new Component("NOT", NOT, colors[0]).disableDelete(),
 			new Component("AND", AND, colors[1]).disableDelete(),
-			new Component("OR", OR, colors[2]),
-			new Component("NAND", NAND, colors[3]),
 		])
 
-		const components = ref<Component[]>([new Component("INV", INV, colors[0], 500, 300)])
+		const components = ref<Component[]>([new Component("NOT", NOT, colors[0], 500, 300)])
 
 		const connections = ref<IConnection[]>([])
 
@@ -680,7 +678,7 @@ export default defineComponent({
 					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
 				} else if (isSameTruthTable(truthTables.NOTHING, truthTable)) {
 					message = "That doesn't seem to useful of a component now, does it?"
-				} else if (isSameTruthTable(truthTables.INV, truthTable)) {
+				} else if (isSameTruthTable(truthTables.NOT, truthTable)) {
 					message = "I'm pretty sure you already got a similar component to this, friend"
 				} else if (isSameTruthTable(truthTables.AND, truthTable)) {
 					message = "Another AND gate, daring today are we"
