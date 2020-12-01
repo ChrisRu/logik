@@ -155,10 +155,8 @@ function deserializeComponent(content: any): Component {
 
 export function loadComponents(): Component[] {
 	try {
-		console.info("Loading stored components")
 		const compressedComponents = localStorage.getItem("logik:components")
 		if (!compressedComponents) {
-			console.info('No stored components found, returning default')
 			return defaultComponents
 		}
 
@@ -201,7 +199,6 @@ export function loadComponents(): Component[] {
 			}
 		}
 
-		console.info("Parsed stored components")
 		return loadedComponents
 	} catch (error) {
 		console.error("Stored components are invalid", error)

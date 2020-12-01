@@ -286,7 +286,7 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, computed } from "vue"
+import { ref, defineComponent, computed, shallowRef } from "vue"
 import * as uuid from "uuid"
 import {
 	Point,
@@ -333,7 +333,7 @@ export default defineComponent({
 		const outputs = ref<Output[]>([{ key: uuid.v4(), state: true }])
 		const availableComponents = ref<Component[]>(loadComponents())
 		const chips = ref<Chip[]>([])
-		const connections = ref<Connection[]>([])
+		const connections = shallowRef<Connection[]>([])
 		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
 		const componentToBeDeleted = ref<Component | null>(null)
 
@@ -620,6 +620,7 @@ export default defineComponent({
 					? availableColors[Math.floor(Math.random() * availableColors.length)]
 					: createRandomColor()
 
+
 			const newComponent = new Component(
 				name,
 				{
@@ -683,6 +684,8 @@ export default defineComponent({
 			const turnedOnConnections = new Set(
 				connections.value.filter(({ from }) => turnedOnPins.has(from)),
 			)
+
+			console.log(connections)
 
 			return {
 				turnedOnPins,

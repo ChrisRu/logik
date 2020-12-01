@@ -156,8 +156,6 @@ export function computeTurnedOnPins(connections: Connection[], outputs: boolean[
 	const turnedOnPins = new Set<Pin>()
 	const turnedOffPins = new Set<Pin>()
 
-	console.log('computing')
-
 	// Precalculation for all connections for all chips (and inputs and outputs),
 	// so less looping is required in main loop
 	const queue: Pin[] = []
