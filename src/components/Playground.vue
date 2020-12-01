@@ -354,7 +354,7 @@ export default defineComponent({
 			storeComponents(availableComponents.value)
 		}
 
-		function addOutput() {
+		function addOutput(): Pin {
 			outputs.value = [...outputs.value, { key: uuid.v4(), state: false }]
 
 			return {
@@ -365,10 +365,6 @@ export default defineComponent({
 
 		function addInput(): Pin {
 			inputCount.value++
-
-			if (drawingLine.value.pin) {
-				drawingLine.value.pin = null
-			}
 
 			return {
 				type: "global-input",
@@ -470,16 +466,12 @@ export default defineComponent({
 
 			if (type === "global-output") {
 				if (drawingLine.value.pin.type.endsWith("input")) {
-					addOutput()
-					endDraw({ type, index: outputs.value.length - 1 })
+					endDraw(addOutput())
 				}
 			} else if (type === "global-input") {
 				if (drawingLine.value.pin.type.endsWith("output")) {
-					addInput()
-					endDraw({ type, index: inputCount.value - 1 })
+					endDraw(addInput())
 				}
-			} else {
-				throw new Error(`Unknown pin type: ${type}`)
 			}
 		}
 

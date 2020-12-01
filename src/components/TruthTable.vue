@@ -1,5 +1,6 @@
 <template>
-	<table class="table">
+	<div v-if="truthTable.length > 24" class="table-too-big">Truth table too big to display</div>
+	<table v-else class="table">
 		<tbody class="table-body">
 			<tr class="table-row" :key="index" v-for="(row, index) in truthTable">
 				<td
@@ -37,7 +38,7 @@ export default defineComponent({
 		},
 	},
 	setup({ component }) {
-		const truthTable = computed(() => lookupToTruthTable(component.truthTable, 16))
+		const truthTable = computed(() => lookupToTruthTable(component.truthTable))
 
 		return {
 			truthTable,
@@ -52,6 +53,16 @@ $bg-output: #212121;
 $border: #282828;
 $on-color: #fff;
 $off-color: rgba(255, 255, 255, 0.5);
+
+.table-too-big {
+	background: $bg-params;
+	border: 1px solid $border;
+	border-radius: 3px;
+	color: $on-color;
+	font-weight: bold;
+	padding: 8px;
+	width: 200px;
+}
 
 .table {
 	background: $bg-params;

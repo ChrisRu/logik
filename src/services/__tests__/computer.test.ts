@@ -171,14 +171,14 @@ it("should be the same component pin", () => {
 
 it("should evaluate basic operator", () => {
 	const operator: Operator = () => [false]
-	const component = new Component('FALSE', operator, '#ff0000')
+	const component = new Component("FALSE", operator, "#ff0000")
 
 	expect(evaluate(component, [])).toEqual([false])
 })
 
 it("should evaluate NAND operator", () => {
 	const operator = NAND
-	const component = new Component('NAND', operator, '#ff0000')
+	const component = new Component("NAND", operator, "#ff0000")
 
 	expect(evaluate(component, [false, false])).toEqual([true])
 	expect(evaluate(component, [false, true])).toEqual([true])
@@ -188,7 +188,7 @@ it("should evaluate NAND operator", () => {
 
 it("should evaluate AND operator", () => {
 	const operator = AND
-	const component = new Component('AND', operator, '#ff0000')
+	const component = new Component("AND", operator, "#ff0000")
 
 	expect(evaluate(component, [false, false])).toEqual([false])
 	expect(evaluate(component, [false, true])).toEqual([false])
@@ -198,7 +198,7 @@ it("should evaluate AND operator", () => {
 
 it("should evaluate NOT operator", () => {
 	const operator = NOT
-	const component = new Component('NOT', operator, '#ff0000')
+	const component = new Component("NOT", operator, "#ff0000")
 
 	expect(evaluate(component, [false])).toEqual([true])
 	expect(evaluate(component, [true])).toEqual([false])
@@ -206,7 +206,7 @@ it("should evaluate NOT operator", () => {
 
 it("should evaluate OR operator", () => {
 	const operator = OR
-	const component = new Component('OR', operator, '#ff0000')
+	const component = new Component("OR", operator, "#ff0000")
 
 	expect(evaluate(component, [false, false])).toEqual([false])
 	expect(evaluate(component, [false, true])).toEqual([true])
@@ -243,7 +243,7 @@ it("should evaluate custom direct component", () => {
 		inputs: 2,
 		outputs: 2,
 	}
-	const component = new Component('CUSTOM', operator, '#00ff00')
+	const component = new Component("CUSTOM", operator, "#00ff00")
 
 	expect(evaluate(component, [false, false])).toEqual([false, false])
 	expect(evaluate(component, [true, false])).toEqual([false, true])
@@ -254,96 +254,44 @@ it("should evaluate custom direct component", () => {
 it("should evaluate custom NOT component", () => {
 	const NOTComponent = new Component("NOT", NOT, "#ff0000")
 
-	const operator: CustomOperator = {
-		connections: [
-			{
-				key: uuid.v4(),
-				from: {
-					index: 0,
-					type: "global-output",
-				},
-				to: {
-					index: 0,
-					chip: {
-						key: "chip1",
-						x: 0,
-						y: 0,
-						component: NOTComponent,
-					},
-					type: "input",
-				},
-			},
-			{
-				key: uuid.v4(),
-				from: {
-					index: 1,
-					chip: {
-						key: "chip1",
-						x: 0,
-						y: 0,
-						component: NOTComponent,
-					},
-					type: "input",
-				},
-				to: {
-					index: 0,
-					type: "global-input",
-				},
-			},
-		],
-		inputs: 1,
-		outputs: 1,
+	const chip = {
+		key: "chip1",
+		x: 0,
+		y: 0,
+		component: NOTComponent,
 	}
-	const component = new Component('INV', operator, '#0000ff')
-
-	expect(evaluate(component, [false])).toEqual([true])
-	expect(evaluate(component, [true])).toEqual([false])
-})
-
-it("should evaluate custom NOT component", () => {
-	const NOTComponent = new Component("NOT", NOT, "#ff0000")
 
 	const operator: CustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
 				from: {
-					index: 0,
 					type: "global-output",
+					index: 0,
 				},
 				to: {
-					index: 0,
-					chip: {
-						key: "chip1",
-						x: 0,
-						y: 0,
-						component: NOTComponent,
-					},
 					type: "input",
+					index: 0,
+					chip,
 				},
 			},
 			{
 				key: uuid.v4(),
 				from: {
+					type: "output",
 					index: 1,
-					chip: {
-						key: "chip1",
-						x: 0,
-						y: 0,
-						component: NOTComponent,
-					},
-					type: "input",
+					chip,
 				},
 				to: {
-					index: 0,
 					type: "global-input",
+					index: 0,
 				},
 			},
 		],
 		inputs: 1,
 		outputs: 1,
 	}
-	const component = new Component('CUSTOM', operator, '#880088')
+	const component = new Component("INV", operator, "#880088")
 
 	expect(evaluate(component, [false])).toEqual([true])
 	expect(evaluate(component, [true])).toEqual([false])

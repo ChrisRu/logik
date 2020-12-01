@@ -82,14 +82,8 @@ export function truthTableToLookup(truthTable: TruthTable): TruthTableLookup {
 	)
 }
 
-export function lookupToTruthTable(truthTable: TruthTableLookup, amount?: number): TruthTable {
-	let entries = Object.entries(truthTable)
-
-	if (amount !== undefined) {
-		entries = entries.slice(0, amount)
-	}
-
-	return entries.map(([key, output]) => {
+export function lookupToTruthTable(truthTable: TruthTableLookup): TruthTable {
+	return Object.entries(truthTable).map(([key, output]) => {
 		const params = key.split("").map((x) => x === "1")
 
 		return {

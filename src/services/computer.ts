@@ -60,6 +60,10 @@ export interface Connection {
 	to: Pin
 }
 
+export function isSameComponent(a: Component, b: Component): boolean {
+	return a.key === b.key
+}
+
 export function isSamePin(a: Pin, b: Pin) {
 	if (a.type !== b.type) {
 		return false
@@ -78,10 +82,6 @@ export function isSamePin(a: Pin, b: Pin) {
 	}
 
 	return isSameChip(a.chip, b.chip)
-}
-
-export function isSameComponent(a: Component, b: Component): boolean {
-	return a.key === b.key
 }
 
 export function isSameChip(a: Chip, b: Chip): boolean {
@@ -141,14 +141,11 @@ export function evaluate(component: Component, inputs: boolean[]): boolean[] {
 		return component.operator(...inputs)
 	}
 
-	const pins = Array.from(computeTurnedOnPins(component.operator.connections, inputs))
-		.filter(({ type }) => type === "global-input")
-		.map(({ index }) => index)
-
 	const output = Array(component.operator.outputs).fill(false)
-	for (const { to } of component.operator.connections) {
-		if (to.type === "global-input") {
-			output[to.index] = pins.includes(to.index)
+	const turnedOnPins = computeTurnedOnPins(component.operator.connections, inputs)
+	for (const pin of turnedOnPins.values()) {
+		if (pin.type === "global-input") {
+			output[pin.index] = true
 		}
 	}
 
@@ -159,9 +156,42 @@ export function computeTurnedOnPins(connections: Connection[], outputs: boolean[
 	const turnedOnPins = new Set<Pin>()
 	const turnedOffPins = new Set<Pin>()
 
-	const queue: Pin[] = connections
-		.filter(({ from }) => from.type === "global-output")
-		.map(({ from }) => from)
+	console.log('computing')
+
+	// Precalculation for all connections for all chips (and inputs and outputs),
+	// so less looping is required in main loop
+	const queue: Pin[] = []
+	const inputConnections: Connection[] = []
+	const outputConnections: Connection[] = []
+	const fromConnections: { [chipKey: string]: Connection[] | undefined } = {}
+	const toConnections: { [chipKey: string]: Connection[] | undefined } = {}
+	for (const connection of connections) {
+		const { from, to } = connection
+
+		if (from.type === "output") {
+			if (fromConnections[from.chip.key]) {
+				fromConnections[from.chip.key]!.push(connection)
+			} else {
+				fromConnections[from.chip.key] = [connection]
+			}
+		} else if (from.type === "global-output") {
+			outputConnections.push(connection)
+		}
+
+		if (to.type === "input") {
+			if (toConnections[to.chip.key]) {
+				toConnections[to.chip.key]!.push(connection)
+			} else {
+				toConnections[to.chip.key] = [connection]
+			}
+		} else if (to.type === "global-input") {
+			inputConnections.push(connection)
+		}
+
+		if (from.type === "global-output") {
+			queue.push(from)
+		}
+	}
 
 	while (queue.length) {
 		const current = queue.shift() as typeof queue[0]
@@ -170,7 +200,7 @@ export function computeTurnedOnPins(connections: Connection[], outputs: boolean[
 		}
 
 		if (current.type === "global-output") {
-			for (const { from, to } of connections) {
+			for (const { from, to } of outputConnections) {
 				if (isSamePin(from, current)) {
 					queue.push(to)
 
@@ -188,8 +218,8 @@ export function computeTurnedOnPins(connections: Connection[], outputs: boolean[
 				}
 			}
 		} else if (current.type === "global-input") {
-			for (const { from, to } of connections) {
-				if (to === current) {
+			for (const { from, to } of inputConnections) {
+				if (isSamePin(to, current)) {
 					queue.push(from)
 				}
 			}
@@ -198,58 +228,54 @@ export function computeTurnedOnPins(connections: Connection[], outputs: boolean[
 				throw new Error("Operator is not defined for component")
 			}
 
-			const parameterConnections = connections.filter(
-				({ to }) => "chip" in to && isSameChip(to.chip, current.chip),
-			)
+			const parameterConnections = toConnections[current.chip.key] ?? []
 			if (parameterConnections.length !== current.chip.component.operatorInputs) {
 				console.warn(`Wiring incomplete for ${current.type} ${current.chip.component.name}`)
 				continue
 			}
 
-			const params = parameterConnections
-				.sort((a, b) => a.to.index - b.to.index)
-				.map(({ from }) =>
-					turnedOnPins.has(from) ? true : turnedOffPins.has(from) ? false : undefined,
-				)
-			if (params.includes(undefined)) {
+			let potentiallyCircular = false
+			const params = Array(current.chip.component.operatorInputs).fill(undefined)
+			for (const { from, to } of parameterConnections) {
+				params[to.index] = turnedOnPins.has(from)
+					? true
+					: turnedOffPins.has(from)
+					? false
+					: undefined
+
+				if (params[to.index] === undefined) {
+					potentiallyCircular = true
+					break
+				}
+			}
+			if (potentiallyCircular) {
 				console.warn(
-					`Wiring incomplete for ${current.type} ${current.chip.component.name}. Circular structure?`,
+					`Wiring incomplete for ${current.type} ${current.chip.component.name}. Potentially a circular structure?`,
 				)
 				continue
 			}
 
 			const status = evaluate(current.chip.component, params as boolean[])
-
-			for (const { from, to } of connections) {
-				if ("chip" in from && isSameChip(from.chip, current.chip)) {
-					const statusIndex = from.index - current.chip.component.operatorInputs
-					if (status[statusIndex]) {
-						turnedOnPins.add(from)
-						if (to.type === "global-input") {
-							turnedOnPins.add(to)
-						}
-					} else {
-						turnedOffPins.add(from)
-						if (to.type === "global-input") {
-							turnedOffPins.add(to)
-						}
+			for (const { from, to } of fromConnections[current.chip.key] ?? []) {
+				const statusIndex = from.index - current.chip.component.operatorInputs
+				if (status[statusIndex]) {
+					turnedOnPins.add(from)
+					if (to.type === "global-input") {
+						turnedOnPins.add(to)
 					}
-
-					queue.push(to)
+				} else {
+					turnedOffPins.add(from)
+					if (to.type === "global-input") {
+						turnedOffPins.add(to)
+					}
 				}
+
+				queue.push(to)
 			}
 		} else if (current.type === "output") {
-			if (!current.chip) {
-				throw new Error("Broken output component, no content defined")
+			for (const { from } of toConnections[current.chip.key] ?? []) {
+				queue.push(from)
 			}
-
-			for (const { from, to } of connections) {
-				if ("chip" in to && isSameChip(to.chip, current.chip)) {
-					queue.push(from)
-				}
-			}
-		} else {
-			throw new Error(`Unknown component type ${current.type}`)
 		}
 	}
 
