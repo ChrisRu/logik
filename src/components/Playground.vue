@@ -286,7 +286,7 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, computed, shallowRef } from "vue"
+import { ref, defineComponent, computed, shallowRef, markRaw } from "vue"
 import * as uuid from "uuid"
 import {
 	Point,
@@ -331,11 +331,11 @@ export default defineComponent({
 	setup() {
 		const inputCount = ref<number>(1)
 		const outputs = ref<Output[]>([{ key: uuid.v4(), state: true }])
-		const availableComponents = ref<Component[]>(loadComponents())
+		const availableComponents = shallowRef<Component[]>(loadComponents())
 		const chips = ref<Chip[]>([])
 		const connections = shallowRef<Connection[]>([])
 		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
-		const componentToBeDeleted = ref<Component | null>(null)
+		const componentToBeDeleted = shallowRef<Component | null>(null)
 
 		function verifyDeleteComponent(component: Component) {
 			if (component.canBeDeleted) {
@@ -620,15 +620,16 @@ export default defineComponent({
 					? availableColors[Math.floor(Math.random() * availableColors.length)]
 					: createRandomColor()
 
-
-			const newComponent = new Component(
-				name,
-				{
-					connections: [...connections.value],
-					inputs: outputs.value.length,
-					outputs: inputCount.value,
-				},
-				color,
+			const newComponent = markRaw(
+				new Component(
+					name,
+					{
+						connections: [...connections.value],
+						inputs: outputs.value.length,
+						outputs: inputCount.value,
+					},
+					color,
+				),
 			)
 
 			availableComponents.value = [...availableComponents.value, newComponent]

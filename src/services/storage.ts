@@ -1,4 +1,5 @@
 import * as lz from "lz-string"
+import { markRaw } from "vue"
 import { colors } from "./colors"
 import { AND, Component, CustomOperator, Pin, NOT, Operator, Chip } from "./computer"
 import { TruthTableLookup } from "./truthTable"
@@ -144,12 +145,11 @@ function deserializeComponent(content: any): Component {
 		throw new Error("Failed deserializing component, unknown data structure")
 	}
 
-	return Object.assign(
-		new Component(content.name, operator, content.color, content.truthTable),
-		{
+	return markRaw(
+		Object.assign(new Component(content.name, operator, content.color, content.truthTable), {
 			key: content.key,
 			canBeDeleted: content.canBeDeleted ?? false,
-		},
+		}),
 	)
 }
 
@@ -171,7 +171,7 @@ export function loadComponents(): Component[] {
 		}
 
 		const loadedComponents = preserializedComponents.map(deserializeComponent)
-		const deserializedComponents = Object.fromEntries(loadedComponents.map(c => [c.key, c]))
+		const deserializedComponents = Object.fromEntries(loadedComponents.map((c) => [c.key, c]))
 
 		for (const component of loadedComponents) {
 			if (typeof component.operator !== "function") {
