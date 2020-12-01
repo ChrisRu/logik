@@ -4,14 +4,14 @@ import {
 	NAND,
 	OR,
 	Component,
-	ICustomOperator,
+	CustomOperator,
 	Operator,
-	IPin,
-	isSameComponent,
+	Pin,
+	isSameChip,
 	isSamePin,
 	evaluate,
 	computeTurnedOnPins,
-	IConnection,
+	Connection,
 } from "../computer"
 import * as uuid from "uuid"
 
@@ -20,7 +20,20 @@ it("should not be the same component", () => {
 	const FALSE: Operator = () => [false]
 
 	expect(
-		isSameComponent(new Component("x", TRUE, "#ff0000"), new Component("y", FALSE, "#000000")),
+		isSameChip(
+			{
+				key: "x",
+				x: 0,
+				y: 0,
+				component: new Component("x", TRUE, "#ff0000"),
+			},
+			{
+				key: "y",
+				x: 0,
+				y: 0,
+				component: new Component("y", FALSE, "#000000"),
+			},
+		),
 	).toBeFalsy()
 })
 
@@ -28,9 +41,19 @@ it("should not be the same component, even though they have similar contents", (
 	const FALSE: Operator = () => [false]
 
 	expect(
-		isSameComponent(
-			new Component("name", FALSE, "#000000"),
-			new Component("name", FALSE, "#000000"),
+		isSameChip(
+			{
+				key: "x",
+				x: 0,
+				y: 0,
+				component: new Component("name", FALSE, "#000000"),
+			},
+			{
+				key: "y",
+				x: 0,
+				y: 0,
+				component: new Component("name", FALSE, "#000000"),
+			},
 		),
 	).toBeFalsy()
 })
@@ -38,33 +61,31 @@ it("should not be the same component, even though they have similar contents", (
 it("should be the same component", () => {
 	const FALSE: Operator = () => [false]
 
-	const component = new Component("name", FALSE, "#000000")
+	const component = {
+		key: "x",
+		x: 0,
+		y: 0,
+		component: new Component("name", FALSE, "#000000"),
+	}
 
-	expect(isSameComponent(component, component)).toBeTruthy()
-})
-
-it("should be the same component deserialized", () => {
-	const FALSE: Operator = () => [false]
-
-	const component1 = new Component("name", FALSE, "#000000")
-	const component2 = Object.assign(
-		new Component("", FALSE, "#ffffff"),
-		JSON.parse(JSON.stringify(component1)),
-	)
-
-	expect(isSameComponent(component1, component2)).toBeTruthy()
+	expect(isSameChip(component, component)).toBeTruthy()
 })
 
 it("should not be the same pin", () => {
 	const FALSE: Operator = () => [false]
 
-	const pin1: IPin = {
+	const pin1: Pin = {
 		index: 0,
-		content: new Component("test", FALSE, "#ff0000"),
+		chip: {
+			key: "chip1",
+			x: 0,
+			y: 0,
+			component: new Component("test", FALSE, "#ff0000"),
+		},
 		type: "output",
 	}
 
-	const pin2: IPin = {
+	const pin2: Pin = {
 		index: 1,
 		type: "global-input",
 	}
@@ -75,15 +96,25 @@ it("should not be the same pin", () => {
 it("should not be the same pin with a different component", () => {
 	const FALSE: Operator = () => [false]
 
-	const pin1: IPin = {
+	const pin1: Pin = {
 		index: 0,
-		content: new Component("", FALSE, "#fffff"),
+		chip: {
+			key: "asdf",
+			x: 0,
+			y: 0,
+			component: new Component("", FALSE, "#fffff"),
+		},
 		type: "output",
 	}
 
-	const pin2: IPin = {
+	const pin2: Pin = {
 		index: 0,
-		content: new Component("", FALSE, "#fffff"),
+		chip: {
+			key: "fdsa",
+			x: 0,
+			y: 0,
+			component: new Component("", FALSE, "#fffff"),
+		},
 		type: "output",
 	}
 
@@ -91,12 +122,12 @@ it("should not be the same pin with a different component", () => {
 })
 
 it("should be the same global input pin", () => {
-	const pin1: IPin = {
+	const pin1: Pin = {
 		index: 1,
 		type: "global-output",
 	}
 
-	const pin2: IPin = {
+	const pin2: Pin = {
 		index: 1,
 		type: "global-output",
 	}
@@ -111,17 +142,27 @@ it("should be the same component pin", () => {
 	const component2 = Object.assign(
 		new Component("", FALSE, "#ffffff"),
 		JSON.parse(JSON.stringify(component1)),
-	)
+	) as Component
 
-	const pin1: IPin = {
+	const pin1: Pin = {
 		index: 1,
-		content: component1,
+		chip: {
+			key: "chip1",
+			x: 0,
+			y: 0,
+			component: component1,
+		},
 		type: "output",
 	}
 
-	const pin2: IPin = {
+	const pin2: Pin = {
 		index: 1,
-		content: component2,
+		chip: {
+			key: "chip1",
+			x: 0,
+			y: 0,
+			component: component2,
+		},
 		type: "output",
 	}
 
@@ -130,46 +171,51 @@ it("should be the same component pin", () => {
 
 it("should evaluate basic operator", () => {
 	const operator: Operator = () => [false]
+	const component = new Component('FALSE', operator, '#ff0000')
 
-	expect(evaluate(operator, [])).toEqual([false])
+	expect(evaluate(component, [])).toEqual([false])
 })
 
 it("should evaluate NAND operator", () => {
 	const operator = NAND
+	const component = new Component('NAND', operator, '#ff0000')
 
-	expect(evaluate(operator, [false, false])).toEqual([true])
-	expect(evaluate(operator, [false, true])).toEqual([true])
-	expect(evaluate(operator, [false, true])).toEqual([true])
-	expect(evaluate(operator, [true, true])).toEqual([false])
+	expect(evaluate(component, [false, false])).toEqual([true])
+	expect(evaluate(component, [false, true])).toEqual([true])
+	expect(evaluate(component, [false, true])).toEqual([true])
+	expect(evaluate(component, [true, true])).toEqual([false])
 })
 
 it("should evaluate AND operator", () => {
 	const operator = AND
+	const component = new Component('AND', operator, '#ff0000')
 
-	expect(evaluate(operator, [false, false])).toEqual([false])
-	expect(evaluate(operator, [false, true])).toEqual([false])
-	expect(evaluate(operator, [false, true])).toEqual([false])
-	expect(evaluate(operator, [true, true])).toEqual([true])
+	expect(evaluate(component, [false, false])).toEqual([false])
+	expect(evaluate(component, [false, true])).toEqual([false])
+	expect(evaluate(component, [false, true])).toEqual([false])
+	expect(evaluate(component, [true, true])).toEqual([true])
 })
 
 it("should evaluate NOT operator", () => {
 	const operator = NOT
+	const component = new Component('NOT', operator, '#ff0000')
 
-	expect(evaluate(operator, [false])).toEqual([true])
-	expect(evaluate(operator, [true])).toEqual([false])
+	expect(evaluate(component, [false])).toEqual([true])
+	expect(evaluate(component, [true])).toEqual([false])
 })
 
 it("should evaluate OR operator", () => {
 	const operator = OR
+	const component = new Component('OR', operator, '#ff0000')
 
-	expect(evaluate(operator, [false, false])).toEqual([false])
-	expect(evaluate(operator, [false, true])).toEqual([true])
-	expect(evaluate(operator, [false, true])).toEqual([true])
-	expect(evaluate(operator, [true, true])).toEqual([true])
+	expect(evaluate(component, [false, false])).toEqual([false])
+	expect(evaluate(component, [false, true])).toEqual([true])
+	expect(evaluate(component, [false, true])).toEqual([true])
+	expect(evaluate(component, [true, true])).toEqual([true])
 })
 
 it("should evaluate custom direct component", () => {
-	const operator: ICustomOperator = {
+	const operator: CustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
@@ -197,17 +243,18 @@ it("should evaluate custom direct component", () => {
 		inputs: 2,
 		outputs: 2,
 	}
+	const component = new Component('CUSTOM', operator, '#00ff00')
 
-	expect(evaluate(operator, [false, false])).toEqual([false, false])
-	expect(evaluate(operator, [true, false])).toEqual([false, true])
-	expect(evaluate(operator, [false, true])).toEqual([true, false])
-	expect(evaluate(operator, [true, true])).toEqual([true, true])
+	expect(evaluate(component, [false, false])).toEqual([false, false])
+	expect(evaluate(component, [true, false])).toEqual([false, true])
+	expect(evaluate(component, [false, true])).toEqual([true, false])
+	expect(evaluate(component, [true, true])).toEqual([true, true])
 })
 
 it("should evaluate custom NOT component", () => {
-	const component = new Component("NOT", NOT, "#ff0000")
+	const NOTComponent = new Component("NOT", NOT, "#ff0000")
 
-	const operator: ICustomOperator = {
+	const operator: CustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
@@ -217,7 +264,12 @@ it("should evaluate custom NOT component", () => {
 				},
 				to: {
 					index: 0,
-					content: component,
+					chip: {
+						key: "chip1",
+						x: 0,
+						y: 0,
+						component: NOTComponent,
+					},
 					type: "input",
 				},
 			},
@@ -225,7 +277,12 @@ it("should evaluate custom NOT component", () => {
 				key: uuid.v4(),
 				from: {
 					index: 1,
-					content: component,
+					chip: {
+						key: "chip1",
+						x: 0,
+						y: 0,
+						component: NOTComponent,
+					},
 					type: "input",
 				},
 				to: {
@@ -237,15 +294,16 @@ it("should evaluate custom NOT component", () => {
 		inputs: 1,
 		outputs: 1,
 	}
+	const component = new Component('INV', operator, '#0000ff')
 
-	expect(evaluate(operator, [false])).toEqual([true])
-	expect(evaluate(operator, [true])).toEqual([false])
+	expect(evaluate(component, [false])).toEqual([true])
+	expect(evaluate(component, [true])).toEqual([false])
 })
 
 it("should evaluate custom NOT component", () => {
-	const component = new Component("NOT", NOT, "#ff0000")
+	const NOTComponent = new Component("NOT", NOT, "#ff0000")
 
-	const operator: ICustomOperator = {
+	const operator: CustomOperator = {
 		connections: [
 			{
 				key: uuid.v4(),
@@ -255,7 +313,12 @@ it("should evaluate custom NOT component", () => {
 				},
 				to: {
 					index: 0,
-					content: component,
+					chip: {
+						key: "chip1",
+						x: 0,
+						y: 0,
+						component: NOTComponent,
+					},
 					type: "input",
 				},
 			},
@@ -263,7 +326,12 @@ it("should evaluate custom NOT component", () => {
 				key: uuid.v4(),
 				from: {
 					index: 1,
-					content: component,
+					chip: {
+						key: "chip1",
+						x: 0,
+						y: 0,
+						component: NOTComponent,
+					},
 					type: "input",
 				},
 				to: {
@@ -275,15 +343,16 @@ it("should evaluate custom NOT component", () => {
 		inputs: 1,
 		outputs: 1,
 	}
+	const component = new Component('CUSTOM', operator, '#880088')
 
-	expect(evaluate(operator, [false])).toEqual([true])
-	expect(evaluate(operator, [true])).toEqual([false])
+	expect(evaluate(component, [false])).toEqual([true])
+	expect(evaluate(component, [true])).toEqual([false])
 })
 
 it("should compute custom NOT component", () => {
 	const component = new Component("NOT", NOT, "#ff0000")
 
-	const connections: IConnection[] = [
+	const connections: Connection[] = [
 		{
 			key: uuid.v4(),
 			from: {
@@ -292,7 +361,12 @@ it("should compute custom NOT component", () => {
 			},
 			to: {
 				index: 0,
-				content: component,
+				chip: {
+					key: "chip1",
+					x: 0,
+					y: 0,
+					component,
+				},
 				type: "input",
 			},
 		},
@@ -300,7 +374,12 @@ it("should compute custom NOT component", () => {
 			key: uuid.v4(),
 			from: {
 				index: 1,
-				content: component,
+				chip: {
+					key: "chip1",
+					x: 0,
+					y: 0,
+					component,
+				},
 				type: "output",
 			},
 			to: {

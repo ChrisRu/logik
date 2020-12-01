@@ -1,5 +1,5 @@
 import { AND, Component, NOT, Operator, NOR, OR, XNOR } from "../computer"
-import { computeTruthTable, isSameTruthTable, truthTables } from "../truthTable"
+import { computeTruthTable, isSameTruthTable, truthTables, truthTableToLookup } from "../truthTable"
 
 it("should get correct NOT truth table", () => {
 	expect(computeTruthTable(new Component("NOT", NOT, "#ff0000"))).toEqual([
@@ -117,13 +117,25 @@ it("should be same AND truth table", () => {
 
 it("should have defined correct truth tables", () => {
 	expect(truthTables.NOTHING).toEqual(
-		computeTruthTable(
-			new Component("NOTHING", ((param: boolean) => [param]) as Operator, "#008800"),
+		truthTableToLookup(
+			computeTruthTable(
+				new Component("NOTHING", ((param: boolean) => [param]) as Operator, "#008800"),
+			),
 		),
 	)
-	expect(truthTables.OR).toEqual(computeTruthTable(new Component("OR", OR, "#008800")))
-	expect(truthTables.AND).toEqual(computeTruthTable(new Component("AND", AND, "#008800")))
-	expect(truthTables.NOT).toEqual(computeTruthTable(new Component("NOT", NOT, "#008800")))
-	expect(truthTables.NOR).toEqual(computeTruthTable(new Component("NOR", NOR, "#008800")))
-	expect(truthTables.XNOR).toEqual(computeTruthTable(new Component("NOR", XNOR, "#008800")))
+	expect(truthTables.OR).toEqual(
+		truthTableToLookup(computeTruthTable(new Component("OR", OR, "#008800"))),
+	)
+	expect(truthTables.AND).toEqual(
+		truthTableToLookup(computeTruthTable(new Component("AND", AND, "#008800"))),
+	)
+	expect(truthTables.NOT).toEqual(
+		truthTableToLookup(computeTruthTable(new Component("NOT", NOT, "#008800"))),
+	)
+	expect(truthTables.NOR).toEqual(
+		truthTableToLookup(computeTruthTable(new Component("NOR", NOR, "#008800"))),
+	)
+	expect(truthTables.XNOR).toEqual(
+		truthTableToLookup(computeTruthTable(new Component("NOR", XNOR, "#008800"))),
+	)
 })

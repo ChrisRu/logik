@@ -1,50 +1,65 @@
 import * as lz from "lz-string"
 import { colors } from "./colors"
-import { AND, Component, ICustomOperator, IPin, NOT, Operator } from "./computer"
+import { AND, Component, CustomOperator, Pin, NOT, Operator, Chip } from "./computer"
+import { TruthTableLookup } from "./truthTable"
 
 const defaultComponents = [
 	new Component("AND", AND, colors[1]).disableDelete(),
 	new Component("NOT", NOT, colors[0]).disableDelete(),
 ]
 
-interface IPreserializedCustomOperator {
+interface PreserializedCustomOperator {
 	connections: {
 		key: string
 		from: {
-			type: IPin["type"]
+			type: Pin["type"]
 			index: number
-			content: IPreserializedComponent
+			chip: PreserializedChip
 		}
 		to: {
-			type: IPin["type"]
+			type: Pin["type"]
 			index: number
-			content: IPreserializedComponent
+			chip: PreserializedChip
 		}
 	}[]
 }
 
-interface IPreserializedComponent {
+interface PreserializedChip {
+	key: string
+	x: number
+	y: number
+	component: PreserializedComponent["key"]
+}
+
+interface PreserializedComponent {
 	key: string
 	name: string
 	color: string
-	x: number
-	y: number
-	canBeDeleted: boolean
-	operator: string | IPreserializedCustomOperator
 	inputs: number
 	outputs: number
+	operator: string | PreserializedCustomOperator
+	canBeDeleted: boolean
+	truthTable: TruthTableLookup
 }
 
-function prepareSerializeComponent(component: Component): IPreserializedComponent {
-	const preserializedComponent: IPreserializedComponent = {
+function preserializeChip(chip: Chip): PreserializedChip {
+	return {
+		key: chip.key,
+		x: chip.x,
+		y: chip.y,
+		component: chip.component.key,
+	}
+}
+
+function preserializeComponent(component: Component): PreserializedComponent {
+	return {
 		key: component.key,
 		name: component.name,
 		color: component.color,
-		x: component.x,
-		y: component.y,
 		inputs: component.operatorInputs,
 		outputs: component.operatorOutputs,
 		canBeDeleted: component.canBeDeleted,
+		truthTable: component.truthTable,
 		operator:
 			typeof component.operator === "function"
 				? component.operator.name
@@ -52,31 +67,28 @@ function prepareSerializeComponent(component: Component): IPreserializedComponen
 						connections: component.operator.connections.map(({ key, from, to }) => ({
 							key,
 							from:
-								"content" in from
+								"chip" in from
 									? {
 											type: from.type,
 											index: from.index,
-											content: prepareSerializeComponent(from.content),
+											chip: preserializeChip(from.chip),
 									  }
 									: from,
 							to:
-								"content" in to
+								"chip" in to
 									? {
 											type: to.type,
 											index: to.index,
-											content: prepareSerializeComponent(to.content),
+											chip: preserializeChip(to.chip),
 									  }
 									: to,
 						})),
-				  } as IPreserializedCustomOperator),
+				  } as PreserializedCustomOperator),
 	}
-
-	return preserializedComponent
 }
 
-let deserializedComponents: { [key: string]: Component } = {}
 function deserializeComponent(content: any): Component {
-	let operator: Operator | ICustomOperator
+	let operator: Operator | CustomOperator
 
 	if (typeof content !== "object" || !content) {
 		throw new Error("Failed deserializing component, invalid component type")
@@ -84,10 +96,6 @@ function deserializeComponent(content: any): Component {
 
 	if (!("key" in content)) {
 		throw new Error("Failed deserializing component, no key defined in component")
-	}
-
-	if (content.key && deserializedComponents[content.key]) {
-		return deserializedComponents[content.key]
 	}
 
 	if (!("operator" in content)) {
@@ -102,7 +110,7 @@ function deserializeComponent(content: any): Component {
 		throw new Error("Failed deserializing component, no color defined in component")
 	}
 
-	const serializedComponent = content as IPreserializedComponent
+	const serializedComponent = content as PreserializedComponent
 
 	if (typeof serializedComponent.operator === "string") {
 		if (serializedComponent.operator === "AND") {
@@ -123,31 +131,34 @@ function deserializeComponent(content: any): Component {
 				from: {
 					type: from.type,
 					index: from.index,
-					...(from.content ? { content: deserializeComponent(from.content) } : null),
-				} as IPin,
+					...("chip" in from ? { chip: from.chip } : null),
+				} as Pin,
 				to: {
 					type: to.type,
 					index: to.index,
-					...(to.content ? { content: deserializeComponent(to.content) } : null),
-				} as IPin,
+					...("chip" in to ? { chip: to.chip } : null),
+				} as Pin,
 			})),
 		}
 	} else {
 		throw new Error("Failed deserializing component, unknown data structure")
 	}
 
-	const component = Object.assign(new Component(content.name, operator, content.color), {
-		key: content.key,
-		canBeDeleted: content.canBeDeleted || false,
-	})
-	deserializedComponents[component.key] = component
-	return component
+	return Object.assign(
+		new Component(content.name, operator, content.color, content.truthTable),
+		{
+			key: content.key,
+			canBeDeleted: content.canBeDeleted ?? false,
+		},
+	)
 }
 
 export function loadComponents(): Component[] {
 	try {
+		console.info("Loading stored components")
 		const compressedComponents = localStorage.getItem("logik:components")
 		if (!compressedComponents) {
+			console.info('No stored components found, returning default')
 			return defaultComponents
 		}
 
@@ -161,8 +172,37 @@ export function loadComponents(): Component[] {
 			throw new Error("Invalid data structure in local storage item")
 		}
 
-		deserializedComponents = {}
-		return preserializedComponents.map(deserializeComponent)
+		const loadedComponents = preserializedComponents.map(deserializeComponent)
+		const deserializedComponents = Object.fromEntries(loadedComponents.map(c => [c.key, c]))
+
+		for (const component of loadedComponents) {
+			if (typeof component.operator !== "function") {
+				for (const connection of component.operator.connections) {
+					if ("chip" in connection.from) {
+						connection.from.chip = {
+							key: connection.from.chip.key,
+							x: connection.from.chip.x,
+							y: connection.from.chip.y,
+							component:
+								deserializedComponents[(connection.from.chip.component as unknown) as string],
+						}
+					}
+
+					if ("chip" in connection.to) {
+						connection.to.chip = {
+							key: connection.to.chip.key,
+							x: connection.to.chip.x,
+							y: connection.to.chip.y,
+							component:
+								deserializedComponents[(connection.to.chip.component as unknown) as string],
+						}
+					}
+				}
+			}
+		}
+
+		console.info("Parsed stored components")
+		return loadedComponents
 	} catch (error) {
 		console.error("Stored components are invalid", error)
 		localStorage.removeItem("logik:components")
@@ -172,9 +212,11 @@ export function loadComponents(): Component[] {
 }
 
 export function storeComponents(components: Component[]): void {
-	const preserializedComponents = components.map(prepareSerializeComponent)
+	const preserializedComponents = components.map(preserializeComponent)
 	const serializedComponents = JSON.stringify(preserializedComponents)
 	const compressedComponents = lz.compressToUTF16(serializedComponents)
 
 	localStorage.setItem("logik:components", compressedComponents)
+
+	console.info("Stored components")
 }

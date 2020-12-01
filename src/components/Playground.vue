@@ -34,9 +34,9 @@
 
 		<!-- DRAWING LINE -->
 		<path
-			v-if="drawingLineStart && drawingLine.end"
+			v-if="drawingLinePath"
+			:d="drawingLinePath"
 			:class="drawingLineStatus ? 'active-stroke' : 'inactive-stroke'"
-			:d="calculatePath(drawingLineStart, drawingLine.end)"
 			fill="none"
 			stroke-width="4"
 			stroke-dasharray="10 10"
@@ -48,9 +48,9 @@
 		<path
 			v-for="connection in connections"
 			:key="connection.key"
+			:d="connection.path"
 			:class="connection.active ? 'active-stroke' : 'inactive-stroke'"
-			:d="calculatePath(connection.fromLocation, connection.toLocation)"
-			@mouseup.right="clearPinConnections(connection.to)"
+			@mouseup.right="connection.clearPinConnections()"
 			fill="none"
 			stroke-width="4"
 			stroke-linecap="round"
@@ -62,24 +62,18 @@
 			<rect x="0" y="0" width="64" height="720" fill="rgba(255, 255, 255, 0.03)" />
 			<g v-for="output in outputs" :key="output.key" @mouseup.left="endDraw(output.pin)">
 				<circle
-					:cy="output.location.y"
-					:cx="output.location.x"
+					:cy="output.y"
+					:cx="output.x"
 					@mousedown.left="draw($event, output.pin)"
 					@mouseup.right="clearPinConnections(output.pin)"
 					class="draggable global-output pin"
 					r="8"
 				/>
-				<rect
-					:x="output.location.x - 32"
-					:y="output.location.y - 2"
-					width="32"
-					height="4"
-					class="pin-arrow"
-				/>
+				<rect :x="output.x - 32" :y="output.y - 2" width="32" height="4" class="pin-arrow" />
 				<circle
 					:class="`toggleable ${output.active ? '' : 'in'}active-bg`"
-					:cx="output.location.x - 48"
-					:cy="output.location.y"
+					:cx="output.x - 48"
+					:cy="output.y"
 					@click="output.toggle()"
 					@mouseup.right="output.remove()"
 					r="16"
@@ -119,26 +113,26 @@
 		</g>
 
 		<!-- COMPONENTS -->
-		<g v-for="component in components" :key="component.key" class="component">
+		<g v-for="chip in chips" :key="chip.key" class="component">
 			<rect
-				:x="component.content.x"
-				:y="component.content.y"
-				:width="component.content.width"
-				:height="component.content.height"
-				:fill="component.content.color"
-				@touchstart="move($event, component.content)"
-				@mousedown.left="move($event, component.content)"
-				@mouseup.left="endDrawOnComponent(component)"
-				@mouseup.right="component.remove()"
+				:x="chip.x"
+				:y="chip.y"
+				:width="chip.width"
+				:height="chip.height"
+				:fill="chip.color"
+				@touchstart="chip.move($event)"
+				@mousedown.left="chip.move($event)"
+				@mouseup.left="endDrawOnChip(chip)"
+				@mouseup.right="chip.remove()"
 				class="draggable"
 				rx="3"
 				ry="3"
 			/>
 			<circle
-				v-for="inputPin in component.inputPins"
+				v-for="inputPin in chip.inputPins"
 				:key="inputPin.index"
-				:cx="inputPin.location.x"
-				:cy="inputPin.location.y"
+				:cx="inputPin.x"
+				:cy="inputPin.y"
 				@mousedown.left="draw($event, inputPin.pin)"
 				@mouseup.left="endDraw(inputPin.pin)"
 				@mouseup.right="clearPinConnections(inputPin.pin)"
@@ -146,10 +140,10 @@
 				r="8"
 			/>
 			<circle
-				v-for="outputPin in component.outputPins"
+				v-for="outputPin in chip.outputPins"
 				:key="outputPin.index"
-				:cx="outputPin.location.x"
-				:cy="outputPin.location.y"
+				:cx="outputPin.x"
+				:cy="outputPin.y"
 				@mousedown.left="draw($event, outputPin.pin)"
 				@mouseup.left="endDraw(outputPin.pin)"
 				@mouseup.right="clearPinConnections(outputPin.pin)"
@@ -157,12 +151,12 @@
 				r="8"
 			/>
 			<text
-				:x="component.content.x + component.content.width / 2"
-				:y="component.content.y + component.content.height / 2 + 1"
+				:x="chip.x + chip.width / 2"
+				:y="chip.y + chip.height / 2 + 1"
 				dominant-baseline="middle"
 				text-anchor="middle"
 			>
-				{{ component.content.name }}
+				{{ chip.name }}
 			</text>
 		</g>
 
@@ -172,26 +166,20 @@
 			<g v-for="input in inputs" :key="input.index" @mouseup.left="endDraw(input.pin)">
 				<circle
 					:class="input.active ? 'active-bg' : 'inactive-bg'"
-					:cx="input.location.x + 48"
-					:cy="input.location.y"
+					:cx="input.x + 48"
+					:cy="input.y"
 					@mouseup.right="input.remove()"
 					r="16"
 				/>
 				<circle
-					:cx="input.location.x"
-					:cy="input.location.y"
+					:cx="input.x"
+					:cy="input.y"
 					@mouseup.right="clearPinConnections(input.pin)"
 					@mousedown.left="draw($event, input.pin)"
 					class="draggable global-input pin"
 					r="8"
 				/>
-				<rect
-					:x="input.location.x"
-					:y="input.location.y - 2"
-					class="pin-arrow"
-					width="32"
-					height="4"
-				/>
+				<rect :x="input.x" :y="input.y - 2" class="pin-arrow" width="32" height="4" />
 			</g>
 			<g
 				:class="`button-add ${inputs.length > 7 ? 'disabled' : ''}`"
@@ -301,34 +289,37 @@
 import { ref, defineComponent, computed } from "vue"
 import * as uuid from "uuid"
 import {
-	IPoint,
-	IPin,
+	Point,
+	Pin,
 	Component,
-	IConnection,
+	Connection,
 	computeTurnedOnPins,
-	AND,
-	NOT,
-	OR,
-	NAND,
 	evaluate,
 	isSamePin,
+	isSameChip,
 	isSameComponent,
+	Chip,
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
 import { loadComponents, storeComponents } from "../services/storage"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
-import { computeTruthTable, isSameTruthTable, truthTables } from "../services/truthTable"
+import { computeTruthTable, isSameLookupTruthTable, truthTables } from "../services/truthTable"
 
-function calculatePath(from: IPoint, to: IPoint) {
+function calculatePath(from: Point, to: Point) {
 	return `M ${from.x},${from.y}
 	        L ${to.x},${to.y}`
 }
 
-interface IOutput {
-	state: boolean
+interface Output {
 	key: string
+	state: boolean
+}
+
+interface DrawingLine {
+	pin: Pin | null
+	end: Point | null
 }
 
 export default defineComponent({
@@ -338,25 +329,13 @@ export default defineComponent({
 		Modal,
 	},
 	setup() {
-		const inputCount = ref(1)
-
-		const outputs = ref<IOutput[]>([{ key: uuid.v4(), state: true }])
-
-		const drawingLine = ref<{
-			pin: IPin | null
-			end: IPoint | null
-		}>({
-			pin: null,
-			end: null,
-		})
-
+		const inputCount = ref<number>(1)
+		const outputs = ref<Output[]>([{ key: uuid.v4(), state: true }])
+		const availableComponents = ref<Component[]>(loadComponents())
+		const chips = ref<Chip[]>([])
+		const connections = ref<Connection[]>([])
+		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
 		const componentToBeDeleted = ref<Component | null>(null)
-
-		const availableComponents = ref(loadComponents())
-
-		const components = ref<Component[]>([])
-
-		const connections = ref<IConnection[]>([])
 
 		function verifyDeleteComponent(component: Component) {
 			if (component.canBeDeleted) {
@@ -384,7 +363,7 @@ export default defineComponent({
 			}
 		}
 
-		function addInput(): IPin {
+		function addInput(): Pin {
 			inputCount.value++
 
 			if (drawingLine.value.pin) {
@@ -397,7 +376,7 @@ export default defineComponent({
 			}
 		}
 
-		function removeInput(pin: IPin): void {
+		function removeInput(pin: Pin): void {
 			clearPinConnections(pin)
 
 			if (inputCount.value > 1) {
@@ -411,7 +390,7 @@ export default defineComponent({
 			}
 		}
 
-		function removeOutput(pin: IPin): void {
+		function removeOutput(pin: Pin): void {
 			clearPinConnections(pin)
 
 			outputs.value = outputs.value.filter((_, i) => i !== pin.index)
@@ -427,7 +406,7 @@ export default defineComponent({
 			}
 		}
 
-		function clearPinConnections(pin: IPin): void {
+		function clearPinConnections(pin: Pin): void {
 			const pinConnections = connections.value.map(({ from, to }, i) => {
 				if (isSamePin(from, pin) || isSamePin(to, pin)) {
 					return i
@@ -437,7 +416,7 @@ export default defineComponent({
 			connections.value = connections.value.filter((_, i) => !pinConnections.includes(i))
 		}
 
-		const draw = createDragFunction<IPin>({
+		const draw = createDragFunction<Pin>({
 			onStart(pin) {
 				drawingLine.value.pin = pin
 				drawingLine.value.end = null
@@ -451,41 +430,37 @@ export default defineComponent({
 			padding: 8,
 		})
 
-		const move = createDragFunction<Component>({
+		const move = createDragFunction<Chip>({
 			withPointerOffset: true,
 			onStart(component) {
-				components.value = [
-					...components.value.filter((c) => !isSameComponent(c, component)),
-					component,
-				]
+				chips.value = [...chips.value.filter((c) => !isSameChip(c, component)), component]
 			},
-			onUpdate({ x, y }, component) {
+			onUpdate({ x, y }, chip) {
 				const maxLeft = 64
 				const maxTop = 50
-				const maxRight = 1080 - component.width - 64
-				const maxBottom = 720 - component.height
+				const maxRight = 1080 - chip.component.width - 64
+				const maxBottom = 720 - chip.component.height
 
-				component.x = Math.min(Math.max(maxLeft, x), maxRight)
-				component.y = Math.min(Math.max(maxTop, y), maxBottom)
+				chip.x = Math.min(Math.max(maxLeft, x), maxRight)
+				chip.y = Math.min(Math.max(maxTop, y), maxBottom)
 			},
 		})
 
-		function createAndMove(event: MouseEvent | TouchEvent, componentRef: Component): void {
+		function createAndMove(event: MouseEvent | TouchEvent, component: Component): void {
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
 				return
 			}
 
-			const newComponent = new Component(
-				componentRef.name,
-				componentRef.operator,
-				componentRef.color,
-				64 + 32,
-				50 + 32,
-			)
+			const newChip: Chip = {
+				key: uuid.v4(),
+				x: 64 + 32,
+				y: 50 + 32,
+				component,
+			}
 
-			components.value = [...components.value, newComponent]
+			chips.value = [...chips.value, newChip]
 		}
 
 		function endDrawOnNewPin(type: "global-input" | "global-output"): void {
@@ -508,25 +483,25 @@ export default defineComponent({
 			}
 		}
 
-		function endDrawOnComponent(component: typeof calculatedComponents.value[0]): void {
+		function endDrawOnChip(chip: typeof calculatedChips.value[0]): void {
 			if (!drawingLine.value.pin) {
 				return
 			}
 
 			if (drawingLine.value.pin.type.endsWith("output")) {
 				const activePinIndexes = connections.value
-					.filter(({ to }) => "content" in to && isSameComponent(to.content, component.content))
+					.filter(({ to }) => "chip" in to && isSameComponent(to.chip.component, chip.component))
 					.map(({ to }) => to.index)
 
-				if (activePinIndexes.length === component.inputPins.length) {
+				if (activePinIndexes.length === chip.inputPins.length) {
 					if (activePinIndexes.length === 1) {
-						endDraw(component.inputPins[0].pin)
+						endDraw(chip.inputPins[0].pin)
 					}
 
 					return
 				}
 
-				for (const inputPin of component.inputPins) {
+				for (const inputPin of chip.inputPins) {
 					if (!activePinIndexes.includes(inputPin.pin.index)) {
 						endDraw(inputPin.pin)
 						return
@@ -534,20 +509,18 @@ export default defineComponent({
 				}
 			} else {
 				const activePinIndexes = connections.value
-					.filter(
-						({ from }) => "content" in from && isSameComponent(from.content, component.content),
-					)
+					.filter(({ from }) => "chip" in from && from.chip.key === chip.key)
 					.map(({ from }) => from.index)
 
-				if (activePinIndexes.length === component.outputPins.length) {
+				if (activePinIndexes.length === chip.outputPins.length) {
 					if (activePinIndexes.length === 1) {
-						endDraw(component.outputPins[0].pin)
+						endDraw(chip.outputPins[0].pin)
 					}
 
 					return
 				}
 
-				for (const outputPin of component.outputPins) {
+				for (const outputPin of chip.outputPins) {
 					if (!activePinIndexes.includes(outputPin.pin.index)) {
 						endDraw(outputPin.pin)
 						return
@@ -556,7 +529,7 @@ export default defineComponent({
 			}
 		}
 
-		function endDraw(toPin: IPin): void {
+		function endDraw(toPin: Pin): void {
 			if (!toPin) {
 				return
 			}
@@ -573,11 +546,7 @@ export default defineComponent({
 				return
 			}
 
-			if (
-				"content" in fromPin &&
-				"content" in toPin &&
-				isSameComponent(fromPin.content, toPin.content)
-			) {
+			if ("chip" in fromPin && "chip" in toPin && isSameChip(fromPin.chip, toPin.chip)) {
 				return
 			}
 
@@ -586,7 +555,7 @@ export default defineComponent({
 			}
 
 			const sameConnectionIndex = connections.value.findIndex(
-				({ from, to }) => isSamePin(from, fromPin as IPin) && isSamePin(to, toPin),
+				({ from, to }) => isSamePin(from, fromPin as Pin) && isSamePin(to, toPin),
 			)
 			if (sameConnectionIndex > -1) {
 				connections.value = connections.value.filter((_, i) => i !== sameConnectionIndex)
@@ -600,8 +569,29 @@ export default defineComponent({
 			}
 		}
 
-		function getPinLocation(pin: IPin): IPoint {
+		function getPinLocation(pin: Pin): Point {
 			switch (pin.type) {
+				case "output":
+					return {
+						x: pin.chip.x + pin.chip.component.width,
+						y:
+							pin.chip.y +
+							pin.chip.component.height / 2 +
+							(pin.index -
+								pin.chip.component.operatorInputs -
+								pin.chip.component.operatorOutputs / 2) *
+								18.4 +
+							10,
+					}
+				case "input":
+					return {
+						x: pin.chip.x,
+						y:
+							pin.chip.y +
+							pin.chip.component.height / 2 +
+							(pin.index - pin.chip.component.operatorInputs / 2) * 18.4 +
+							10,
+					}
 				case "global-output":
 					return {
 						x: 80,
@@ -612,42 +602,16 @@ export default defineComponent({
 						x: 1000,
 						y: 360 + (pin.index - inputCount.value / 2 + 0.5) * (80 - inputCount.value * 2),
 					}
-				case "output":
-					if (!pin.content) {
-						throw new Error("Broken input pin, no content defined")
-					}
-
-					return {
-						x: pin.content.x + pin.content.width,
-						y:
-							pin.content.y +
-							pin.content.height / 2 +
-							(pin.index - pin.content.operatorInputs - pin.content.operatorOutputs / 2) * 8 * 2.3 +
-							10,
-					}
-				case "input":
-					if (!pin.content) {
-						throw new Error("Broken output pin, no content defined")
-					}
-
-					return {
-						x: pin.content.x,
-						y:
-							pin.content.y +
-							pin.content.height / 2 +
-							(pin.index - pin.content.operatorInputs / 2) * 8 * 2.3 +
-							10,
-					}
 			}
 		}
 
-		function removeComponent(component: Component): void {
+		function removeChip(chip: Chip): void {
 			connections.value = connections.value.filter(
 				({ from, to }) =>
-					(!("content" in from) || !isSameComponent(from.content, component)) &&
-					(!("content" in to) || !isSameComponent(to.content, component)),
+					(!("chip" in from) || !isSameChip(from.chip, chip)) &&
+					(!("chip" in to) || !isSameChip(to.chip, chip)),
 			)
-			components.value = components.value.filter((c) => !isSameComponent(c, component))
+			chips.value = chips.value.filter((c) => !isSameChip(c, chip))
 		}
 
 		function saveComponent(name: string) {
@@ -681,27 +645,28 @@ export default defineComponent({
 			setTimeout(() => {
 				storeComponents(availableComponents.value)
 
-				const truthTable = computeTruthTable(newComponent)
-
 				let message = ""
 
 				if (
 					(newComponent.name === "XOR" || newComponent.name === "X-OR") &&
-					!isSameTruthTable(truthTables.XOR, truthTable)
+					!isSameLookupTruthTable(truthTables.XOR, newComponent.truthTable)
 				) {
 					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
 				} else if (
 					(newComponent.name === "XNOR" || newComponent.name === "X-NOR") &&
-					!isSameTruthTable(truthTables.XNOR, truthTable)
+					!isSameLookupTruthTable(truthTables.XNOR, newComponent.truthTable)
 				) {
 					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
-				} else if (newComponent.name === "NOR" && !isSameTruthTable(truthTables.NOR, truthTable)) {
+				} else if (
+					newComponent.name === "NOR" &&
+					!isSameLookupTruthTable(truthTables.NOR, newComponent.truthTable)
+				) {
 					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
-				} else if (isSameTruthTable(truthTables.NOTHING, truthTable)) {
+				} else if (isSameLookupTruthTable(truthTables.NOTHING, newComponent.truthTable)) {
 					message = "That doesn't seem to useful of a component now, does it?"
-				} else if (isSameTruthTable(truthTables.NOT, truthTable)) {
+				} else if (isSameLookupTruthTable(truthTables.NOT, newComponent.truthTable)) {
 					message = "I'm pretty sure you already got a similar component to this, friend"
-				} else if (isSameTruthTable(truthTables.AND, truthTable)) {
+				} else if (isSameLookupTruthTable(truthTables.AND, newComponent.truthTable)) {
 					message = "Another AND gate, daring today are we"
 				}
 
@@ -712,7 +677,7 @@ export default defineComponent({
 		}
 
 		function clear() {
-			components.value = []
+			chips.value = []
 			connections.value = []
 			inputCount.value = 1
 			outputs.value = [{ state: true, key: uuid.v4() }]
@@ -739,20 +704,20 @@ export default defineComponent({
 				active: status.value.turnedOnConnections.has(connection),
 				from: connection.from,
 				to: connection.to,
-				fromLocation: getPinLocation(connection.from),
-				toLocation: getPinLocation(connection.to),
+				path: calculatePath(getPinLocation(connection.from), getPinLocation(connection.to)),
+				clearPinConnections: () => clearPinConnections(connection.to),
 			})),
 		)
 
 		const calculatedOutputs = computed(() =>
 			outputs.value.map(({ key, state }, index) => {
-				const pin: IPin = { type: "global-output", index }
+				const pin: Pin = { type: "global-output", index }
 
 				return {
 					key,
 					pin,
 					active: state,
-					location: getPinLocation(pin),
+					...getPinLocation(pin),
 					toggle: () => (outputs.value[index].state = !state),
 					remove: () => removeOutput(pin),
 				}
@@ -763,61 +728,72 @@ export default defineComponent({
 			Array(inputCount.value)
 				.fill(undefined)
 				.map((_, index) => {
-					const pin: IPin = { type: "global-input", index }
+					const pin: Pin = { type: "global-input", index }
 					const connection = connections.value.find(({ to }) => isSamePin(to, pin))
 
 					return {
 						index,
 						pin,
 						active: connection && status.value.turnedOnPins.has(connection.from),
-						location: getPinLocation(pin),
+						...getPinLocation(pin),
 						remove: () => removeInput(pin),
 					}
 				}),
 		)
 
-		const calculatedComponents = computed(() =>
-			components.value.map((component) => ({
-				key: component.key,
-				content: component,
-				remove: () => removeComponent(component),
-				inputPins: Array(component.operatorInputs)
-					.fill(0)
+		const calculatedChips = computed(() =>
+			chips.value.map((chip) => ({
+				key: chip.key,
+				x: chip.x,
+				y: chip.y,
+				name: chip.component.name,
+				width: chip.component.width,
+				height: chip.component.height,
+				color: chip.component.color,
+				component: chip.component,
+				inputPins: Array(chip.component.operatorInputs)
+					.fill(undefined)
 					.map((_, index) => {
-						const pin: IPin = {
+						const pin: Pin = {
 							type: "input",
-							content: component,
 							index,
+							chip,
 						}
 
 						return {
 							index,
 							pin,
-							location: getPinLocation(pin),
+							...getPinLocation(pin),
 						}
 					}),
-				outputPins: Array(component.operatorOutputs)
-					.fill(0)
+				outputPins: Array(chip.component.operatorOutputs)
+					.fill(undefined)
 					.map((_, pinIndex) => {
-						const index = pinIndex + component.operatorInputs
-						const pin: IPin = {
+						const index = pinIndex + chip.component.operatorInputs
+						const pin: Pin = {
 							type: "output",
-							content: component,
 							index,
+							chip,
 						}
 
 						return {
 							index,
 							pin,
-							location: getPinLocation(pin),
+							...getPinLocation(pin),
 						}
 					}),
+				remove: () => removeChip(chip),
+				move: (event: MouseEvent | TouchEvent) => move(event, chip),
 			})),
 		)
 
-		const drawingLineStart = computed(() =>
-			drawingLine.value.pin ? getPinLocation(drawingLine.value.pin) : null,
-		)
+		const drawingLinePath = computed(() => {
+			if (!drawingLine.value.end || !drawingLine.value.pin) {
+				return null
+			}
+
+			return calculatePath(getPinLocation(drawingLine.value.pin), drawingLine.value.end)
+		})
 
 		const drawingLineStatus = computed(() => {
 			const { pin } = drawingLine.value
@@ -829,16 +805,16 @@ export default defineComponent({
 				return outputs.value[pin.index].state
 			}
 
-			if (pin.type === "output" && pin.content) {
+			if (pin.type === "output") {
 				const parameterConnections = connections.value.filter(
-					({ to }) => "content" in to && isSameComponent(to.content, pin.content as Component),
+					({ to }) => "chip" in to && isSameChip(to.chip, pin.chip),
 				)
-				if (parameterConnections.length === pin.content.operatorInputs) {
+				if (parameterConnections.length === pin.chip.component.operatorInputs) {
 					const params = parameterConnections
 						.sort((a, b) => a.to.index - b.to.index)
 						.map(({ from }) => status.value.turnedOnPins.has(from))
 
-					return evaluate(pin.content.operator, params)[pin.index - pin.content.operatorInputs]
+					return evaluate(pin.chip.component, params)[pin.index - pin.chip.component.operatorInputs]
 				}
 			}
 
@@ -873,21 +849,19 @@ export default defineComponent({
 		return {
 			inputs: calculatedInputs,
 			outputs: calculatedOutputs,
-			components: calculatedComponents,
+			chips: calculatedChips,
 			connections: calculatedConnections,
 			addOutputLocation,
 			addInputLocation,
 			availableComponents,
 			drawingLineStatus,
-			drawingLineStart,
-			drawingLine,
-			calculatePath,
+			drawingLinePath,
 			addOutput,
 			addInput,
 			clearPinConnections,
 			draw,
 			endDraw,
-			endDrawOnComponent,
+			endDrawOnChip,
 			endDrawOnNewPin,
 			move,
 			createAndMove,

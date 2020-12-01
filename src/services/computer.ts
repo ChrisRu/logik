@@ -1,5 +1,11 @@
 import * as uuid from "uuid"
 import calculateSize from "calculate-size"
+import {
+	computeTruthTable,
+	getResultFromTruthTable,
+	TruthTableLookup,
+	truthTableToLookup,
+} from "./truthTable"
 
 export type Operator = (...params: (boolean | 0 | 1)[]) => boolean[]
 
@@ -17,37 +23,44 @@ export const NOR: Operator = (a, b) => NOT(...OR(a, b))
 
 export const XNOR: Operator = (a, b) => OR(...NOR(a, b), ...AND(a, b))
 
-export interface IPoint {
+export interface Point {
 	x: number
 	y: number
 }
 
-export interface ICustomOperator {
-	connections: IConnection[]
+export interface CustomOperator {
+	connections: Connection[]
 	outputs: number
 	inputs: number
 }
 
-interface IGlobalPin {
+export interface Chip {
+	key: string
+	x: number
+	y: number
+	component: Component
+}
+
+interface GlobalPin {
 	type: "global-input" | "global-output"
 	index: number
 }
 
-interface IComponentPin {
+interface ChipPin {
 	type: "input" | "output"
-	content: Component
 	index: number
+	chip: Chip
 }
 
-export type IPin = IGlobalPin | IComponentPin
+export type Pin = GlobalPin | ChipPin
 
-export interface IConnection {
+export interface Connection {
 	key: string
-	from: IPin
-	to: IPin
+	from: Pin
+	to: Pin
 }
 
-export function isSamePin(a: IPin, b: IPin) {
+export function isSamePin(a: Pin, b: Pin) {
 	if (a.type !== b.type) {
 		return false
 	}
@@ -60,82 +73,80 @@ export function isSamePin(a: IPin, b: IPin) {
 		return true
 	}
 
-	if (!("content" in a) || !("content" in b)) {
+	if (!("chip" in a) || !("chip" in b)) {
 		throw new Error("Invalid pin content")
 	}
 
-	return isSameComponent(a.content, b.content)
+	return isSameChip(a.chip, b.chip)
 }
 
 export function isSameComponent(a: Component, b: Component): boolean {
 	return a.key === b.key
 }
 
-const componentPadding = 32
+export function isSameChip(a: Chip, b: Chip): boolean {
+	return a.key === b.key
+}
 
-export class Component implements IPoint {
+export class Component {
 	readonly key: string
 	readonly operatorInputs: number
 	readonly operatorOutputs: number
-	readonly operator: Operator | ICustomOperator
-	readonly color: string
+	readonly operator: Operator | CustomOperator
+	readonly truthTable: TruthTableLookup
 	readonly name: string
+	readonly height: number
+	readonly width: number
+	color: string
 	canBeDeleted: boolean
-	x: number
-	y: number
 
 	constructor(
 		name: string,
-		operator: Operator | ICustomOperator,
+		operator: Operator | CustomOperator,
 		color: string,
-		x: number = 0,
-		y: number = 0,
+		truthTable?: TruthTableLookup,
 	) {
 		this.key = uuid.v4()
 		this.name = name
 		this.operator = operator
 		this.color = color
-		this.x = x
-		this.y = y
+		this.canBeDeleted = true
 		this.operatorInputs = typeof operator === "function" ? operator.length : operator.inputs
 		this.operatorOutputs =
 			typeof operator === "function"
 				? operator(...Array(this.operatorInputs).fill(false)).length
 				: operator.outputs
-		this.canBeDeleted = true
+		this.truthTable = truthTable ?? truthTableToLookup(computeTruthTable(this))
+		this.height = Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 28)
+		this.width =
+			calculateSize(this.name, {
+				fontSize: "16",
+				fontWeight: "bold",
+				font: '"Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+			}).width + 32
 	}
 
 	disableDelete(): this {
 		this.canBeDeleted = false
 		return this
 	}
-
-	get height() {
-		return Math.max(Math.max(this.operatorInputs, this.operatorOutputs) * 20, 30)
-	}
-
-	get width() {
-		const { width } = calculateSize(this.name, {
-			fontSize: "16",
-			fontWeight: "bold",
-			font: '"Prompt", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
-		})
-
-		return width + componentPadding
-	}
 }
 
-export function evaluate(operator: Operator | ICustomOperator, outputs: boolean[]): boolean[] {
-	if (typeof operator === "function") {
-		return operator(...outputs)
+export function evaluate(component: Component, inputs: boolean[]): boolean[] {
+	if (component.truthTable) {
+		return getResultFromTruthTable(component.truthTable, inputs)
 	}
 
-	const pins = Array.from(computeTurnedOnPins(operator.connections, outputs))
+	if (typeof component.operator === "function") {
+		return component.operator(...inputs)
+	}
+
+	const pins = Array.from(computeTurnedOnPins(component.operator.connections, inputs))
 		.filter(({ type }) => type === "global-input")
 		.map(({ index }) => index)
 
-	const output = Array(operator.outputs).fill(false)
-	for (const { to } of operator.connections) {
+	const output = Array(component.operator.outputs).fill(false)
+	for (const { to } of component.operator.connections) {
 		if (to.type === "global-input") {
 			output[to.index] = pins.includes(to.index)
 		}
@@ -144,11 +155,11 @@ export function evaluate(operator: Operator | ICustomOperator, outputs: boolean[
 	return output
 }
 
-export function computeTurnedOnPins(connections: IConnection[], outputs: boolean[]): Set<IPin> {
-	const turnedOnPins = new Set<IPin>()
-	const turnedOffPins = new Set<IPin>()
+export function computeTurnedOnPins(connections: Connection[], outputs: boolean[]): Set<Pin> {
+	const turnedOnPins = new Set<Pin>()
+	const turnedOffPins = new Set<Pin>()
 
-	const queue: IPin[] = connections
+	const queue: Pin[] = connections
 		.filter(({ from }) => from.type === "global-output")
 		.map(({ from }) => from)
 
@@ -160,7 +171,7 @@ export function computeTurnedOnPins(connections: IConnection[], outputs: boolean
 
 		if (current.type === "global-output") {
 			for (const { from, to } of connections) {
-				if (from === current) {
+				if (isSamePin(from, current)) {
 					queue.push(to)
 
 					if (outputs[current.index]) {
@@ -183,15 +194,15 @@ export function computeTurnedOnPins(connections: IConnection[], outputs: boolean
 				}
 			}
 		} else if (current.type === "input") {
-			if (current.content?.operator === undefined) {
+			if (current.chip.component.operator === undefined) {
 				throw new Error("Operator is not defined for component")
 			}
 
 			const parameterConnections = connections.filter(
-				({ to }) => "content" in to && to.content === current.content,
+				({ to }) => "chip" in to && isSameChip(to.chip, current.chip),
 			)
-			if (parameterConnections.length !== current.content?.operatorInputs) {
-				console.warn(`Wiring incomplete for ${current.type} ${current.content?.name}`)
+			if (parameterConnections.length !== current.chip.component.operatorInputs) {
+				console.warn(`Wiring incomplete for ${current.type} ${current.chip.component.name}`)
 				continue
 			}
 
@@ -202,16 +213,16 @@ export function computeTurnedOnPins(connections: IConnection[], outputs: boolean
 				)
 			if (params.includes(undefined)) {
 				console.warn(
-					`Wiring incomplete for ${current.type} ${current.content?.name}. Circular structure?`,
+					`Wiring incomplete for ${current.type} ${current.chip.component.name}. Circular structure?`,
 				)
 				continue
 			}
 
-			const status = evaluate(current.content?.operator, params as boolean[])
+			const status = evaluate(current.chip.component, params as boolean[])
 
 			for (const { from, to } of connections) {
-				if ("content" in from && isSameComponent(from.content, current.content)) {
-					const statusIndex = from.index - current.content.operatorInputs
+				if ("chip" in from && isSameChip(from.chip, current.chip)) {
+					const statusIndex = from.index - current.chip.component.operatorInputs
 					if (status[statusIndex]) {
 						turnedOnPins.add(from)
 						if (to.type === "global-input") {
@@ -228,12 +239,12 @@ export function computeTurnedOnPins(connections: IConnection[], outputs: boolean
 				}
 			}
 		} else if (current.type === "output") {
-			if (!current.content) {
+			if (!current.chip) {
 				throw new Error("Broken output component, no content defined")
 			}
 
 			for (const { from, to } of connections) {
-				if ("content" in to && isSameComponent(to.content, current.content)) {
+				if ("chip" in to && isSameChip(to.chip, current.chip)) {
 					queue.push(from)
 				}
 			}

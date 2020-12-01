@@ -1,4 +1,4 @@
-import { IPoint } from "./computer"
+import { Point } from "./computer"
 
 export function getTouchPos(event: MouseEvent | TouchEvent, point: DOMPoint) {
 	if ("touches" in event) {
@@ -21,7 +21,7 @@ export function createDragFunction<T>({
 	ignoreWhen?: (event: MouseEvent | TouchEvent) => boolean
 	withPointerOffset?: boolean
 	padding?: number
-	onUpdate: (point: IPoint, param: T) => void
+	onUpdate: (point: Point, param: T) => void
 	onStart?: (param: T) => void
 	onStop?: (param: T) => void
 }) {

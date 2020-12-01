@@ -26,7 +26,7 @@
 <script lang="ts">
 import { computed, defineComponent } from "vue"
 import { Component } from "../services/computer"
-import { computeTruthTable } from "../services/truthTable"
+import { computeTruthTable, lookupToTruthTable } from "../services/truthTable"
 
 export default defineComponent({
 	name: "TruthTable",
@@ -37,7 +37,7 @@ export default defineComponent({
 		},
 	},
 	setup({ component }) {
-		const truthTable = computed(() => computeTruthTable(component))
+		const truthTable = computed(() => lookupToTruthTable(component.truthTable, 16))
 
 		return {
 			truthTable,
