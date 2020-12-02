@@ -142,7 +142,7 @@ export function evaluate(component: Component, inputs: boolean[]): boolean[] {
 	}
 
 	const output = Array(component.operator.outputs).fill(false)
-	const turnedOnPins = computeTurnedOnPins(component.operator.connections, inputs)
+	const { turnedOnPins } = computePinState(component.operator.connections, inputs)
 	for (const pin of turnedOnPins.values()) {
 		if (pin.type === "global-input") {
 			output[pin.index] = true
@@ -152,130 +152,120 @@ export function evaluate(component: Component, inputs: boolean[]): boolean[] {
 	return output
 }
 
-export function computeTurnedOnPins(connections: Connection[], outputs: boolean[]): Set<Pin> {
+export interface PinState {
+	turnedOnPins: Set<Pin>
+	turnedOffPins: Set<Pin>
+}
+
+export function computePinState(connections: Connection[], inputs: boolean[]): PinState {
 	const turnedOnPins = new Set<Pin>()
 	const turnedOffPins = new Set<Pin>()
 
 	// Precalculation for all connections for all chips (and inputs and outputs),
 	// so less looping is required in main loop
-	const queue: Pin[] = []
-	const inputConnections: Connection[] = []
-	const outputConnections: Connection[] = []
-	const fromConnections: { [chipKey: string]: Connection[] | undefined } = {}
+	const chipInputs: { [chipKey: string]: Set<Pin> | undefined } = {}
+	const inputConnections: { [index: number]: Connection[] | undefined } = {}
 	const toConnections: { [chipKey: string]: Connection[] | undefined } = {}
+	const evaluatedChips = new Set<string>()
+
+	const queue: Pin[] = []
+
 	for (const connection of connections) {
-		const { from, to } = connection
+		const { from } = connection
 
 		if (from.type === "output") {
-			if (fromConnections[from.chip.key]) {
-				fromConnections[from.chip.key]!.push(connection)
+			if (toConnections[from.chip.key]) {
+				toConnections[from.chip.key]!.push(connection)
 			} else {
-				fromConnections[from.chip.key] = [connection]
+				toConnections[from.chip.key] = [connection]
 			}
 		} else if (from.type === "global-output") {
-			outputConnections.push(connection)
-		}
-
-		if (to.type === "input") {
-			if (toConnections[to.chip.key]) {
-				toConnections[to.chip.key]!.push(connection)
+			if (inputConnections[from.index]) {
+				inputConnections[from.index]!.push(connection)
 			} else {
-				toConnections[to.chip.key] = [connection]
+				inputConnections[from.index] = [connection]
 			}
-		} else if (to.type === "global-input") {
-			inputConnections.push(connection)
-		}
 
-		if (from.type === "global-output") {
 			queue.push(from)
 		}
 	}
 
+	let i = 0
 	while (queue.length) {
-		const current = queue.shift() as typeof queue[0]
-		if (turnedOnPins.has(current) || turnedOffPins.has(current)) {
-			continue
-		}
+		i++
 
-		if (current.type === "global-output") {
-			for (const { from, to } of outputConnections) {
-				if (isSamePin(from, current)) {
+		const currentPin = queue.shift() as typeof queue[0]
+
+		if (currentPin.type === "global-output") {
+			const on = inputs[currentPin.index]
+			if (on) {
+				turnedOnPins.add(currentPin)
+			} else {
+				turnedOffPins.add(currentPin)
+			}
+
+			for (const { from, to } of inputConnections[currentPin.index] ?? []) {
+				if (on) {
+					turnedOnPins.add(from).add(to)
+				} else {
+					turnedOffPins.add(from).add(to)
+				}
+
+				if (to.type === "input") {
 					queue.push(to)
 
-					if (outputs[current.index]) {
-						turnedOnPins.add(from)
-						if (to.type === "global-input") {
-							turnedOnPins.add(to)
-						}
+					if (chipInputs[to.chip.key]) {
+						chipInputs[to.chip.key]!.add(to)
 					} else {
-						turnedOffPins.add(from)
-						if (to.type === "global-input") {
-							turnedOffPins.add(to)
-						}
+						chipInputs[to.chip.key] = new Set([to])
 					}
 				}
 			}
-		} else if (current.type === "global-input") {
-			for (const { from, to } of inputConnections) {
-				if (isSamePin(to, current)) {
-					queue.push(from)
-				}
-			}
-		} else if (current.type === "input") {
-			if (current.chip.component.operator === undefined) {
-				throw new Error("Operator is not defined for component")
-			}
+		} else if (currentPin.type === "input") {
+			const { key, component } = currentPin.chip
 
-			const parameterConnections = toConnections[current.chip.key] ?? []
-			if (parameterConnections.length !== current.chip.component.operatorInputs) {
-				console.warn(`Wiring incomplete for ${current.type} ${current.chip.component.name}`)
+			if (evaluatedChips.has(key)) {
 				continue
 			}
 
-			let potentiallyCircular = false
-			const params = Array(current.chip.component.operatorInputs).fill(undefined)
-			for (const { from, to } of parameterConnections) {
-				params[to.index] = turnedOnPins.has(from)
-					? true
-					: turnedOffPins.has(from)
-					? false
-					: undefined
-
-				if (params[to.index] === undefined) {
-					potentiallyCircular = true
-					break
-				}
-			}
-			if (potentiallyCircular) {
-				console.warn(
-					`Wiring incomplete for ${current.type} ${current.chip.component.name}. Potentially a circular structure?`,
-				)
+			const inputPins = chipInputs[key]
+			if (!inputPins || inputPins.size !== component.operatorInputs) {
 				continue
 			}
 
-			const status = evaluate(current.chip.component, params as boolean[])
-			for (const { from, to } of fromConnections[current.chip.key] ?? []) {
-				const statusIndex = from.index - current.chip.component.operatorInputs
-				if (status[statusIndex]) {
-					turnedOnPins.add(from)
-					if (to.type === "global-input") {
-						turnedOnPins.add(to)
-					}
+			const params: boolean[] = Array(component.operatorInputs).fill(undefined)
+			for (const pin of inputPins) {
+				params[pin.index] = turnedOnPins.has(pin)
+			}
+			const outputs = evaluate(component, params)
+
+			for (const { from, to } of toConnections[key] ?? []) {
+				const on = outputs[component.operatorInputs - from.index]
+				if (on) {
+					turnedOnPins.add(from).add(to)
 				} else {
-					turnedOffPins.add(from)
-					if (to.type === "global-input") {
-						turnedOffPins.add(to)
-					}
+					turnedOffPins.add(from).add(to)
 				}
 
-				queue.push(to)
+				if (to.type === "input") {
+					queue.push(to)
+
+					if (chipInputs[to.chip.key]) {
+						chipInputs[to.chip.key]!.add(to)
+					} else {
+						chipInputs[to.chip.key] = new Set([to])
+					}
+				}
 			}
-		} else if (current.type === "output") {
-			for (const { from } of toConnections[current.chip.key] ?? []) {
-				queue.push(from)
-			}
+
+			evaluatedChips.add(key)
 		}
 	}
 
-	return turnedOnPins
+	console.log(`${i} iterations`)
+
+	return {
+		turnedOnPins,
+		turnedOffPins,
+	}
 }

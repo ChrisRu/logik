@@ -27,7 +27,7 @@
 <script lang="ts">
 import { computed, defineComponent } from "vue"
 import { Component } from "../services/computer"
-import { computeTruthTable, lookupToTruthTable } from "../services/truthTable"
+import { lookupToTruthTable } from "../services/truthTable"
 
 export default defineComponent({
 	name: "TruthTable",

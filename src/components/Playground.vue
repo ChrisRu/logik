@@ -293,7 +293,7 @@ import {
 	Pin,
 	Component,
 	Connection,
-	computeTurnedOnPins,
+	computePinState,
 	evaluate,
 	isSamePin,
 	isSameChip,
@@ -305,7 +305,7 @@ import { colors, createRandomColor } from "../services/colors"
 import { loadComponents, storeComponents } from "../services/storage"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
-import { computeTruthTable, isSameLookupTruthTable, truthTables } from "../services/truthTable"
+import { isSameLookupTruthTable, truthTables } from "../services/truthTable"
 
 function calculatePath(from: Point, to: Point) {
 	return `M ${from.x},${from.y}
@@ -677,27 +677,17 @@ export default defineComponent({
 			outputs.value = [{ state: true, key: uuid.v4() }]
 		}
 
-		const status = computed(() => {
-			const turnedOnPins = computeTurnedOnPins(
+		const pinState = computed(() => {
+			return computePinState(
 				connections.value,
 				outputs.value.map(({ state }) => state),
 			)
-			const turnedOnConnections = new Set(
-				connections.value.filter(({ from }) => turnedOnPins.has(from)),
-			)
-
-			console.log(connections)
-
-			return {
-				turnedOnPins,
-				turnedOnConnections,
-			}
 		})
 
 		const calculatedConnections = computed(() =>
 			connections.value.map((connection) => ({
 				key: connection.key,
-				active: status.value.turnedOnConnections.has(connection),
+				active: pinState.value.turnedOnPins.has(connection.from),
 				from: connection.from,
 				to: connection.to,
 				path: calculatePath(getPinLocation(connection.from), getPinLocation(connection.to)),
@@ -730,7 +720,7 @@ export default defineComponent({
 					return {
 						index,
 						pin,
-						active: connection && status.value.turnedOnPins.has(connection.from),
+						active: connection && pinState.value.turnedOnPins.has(connection.from),
 						...getPinLocation(pin),
 						remove: () => removeInput(pin),
 					}
@@ -799,19 +789,26 @@ export default defineComponent({
 
 			if (pin.type === "global-output") {
 				return outputs.value[pin.index].state
-			}
+			} else if (pin.type === "output") {
+				const params = Array(pin.chip.component.operatorInputs).fill(undefined)
 
-			if (pin.type === "output") {
-				const parameterConnections = connections.value.filter(
-					({ to }) => "chip" in to && isSameChip(to.chip, pin.chip),
-				)
-				if (parameterConnections.length === pin.chip.component.operatorInputs) {
-					const params = parameterConnections
-						.sort((a, b) => a.to.index - b.to.index)
-						.map(({ from }) => status.value.turnedOnPins.has(from))
-
-					return evaluate(pin.chip.component, params)[pin.index - pin.chip.component.operatorInputs]
+				for (const { from, to } of connections.value) {
+					if ("chip" in to && isSameChip(to.chip, pin.chip)) {
+						if (pinState.value.turnedOnPins.has(from)) {
+							params[to.index] = true
+						} else if (pinState.value.turnedOffPins.has(from)) {
+							params[to.index] = false
+						} else {
+							return false
+						}
+					}
 				}
+
+				if (params.includes(undefined)) {
+					return false
+				}
+
+				return evaluate(pin.chip.component, params)[pin.index - pin.chip.component.operatorInputs]
 			}
 
 			return false

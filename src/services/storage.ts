@@ -214,6 +214,4 @@ export function storeComponents(components: Component[]): void {
 	const compressedComponents = lz.compressToUTF16(serializedComponents)
 
 	localStorage.setItem("logik:components", compressedComponents)
-
-	console.info("Stored components")
 }

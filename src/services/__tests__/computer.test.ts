@@ -10,7 +10,7 @@ import {
 	isSameChip,
 	isSamePin,
 	evaluate,
-	computeTurnedOnPins,
+	computePinState,
 	Connection,
 } from "../computer"
 import * as uuid from "uuid"
@@ -337,8 +337,12 @@ it("should compute custom NOT component", () => {
 		},
 	]
 
-	expect(computeTurnedOnPins(connections, [true])).toEqual(new Set([connections[0].from]))
-	expect(computeTurnedOnPins(connections, [false])).toEqual(
-		new Set([connections[1].from, connections[1].to]),
-	)
+	expect(computePinState(connections, [true])).toEqual({
+		turnedOnPins: new Set([connections[0].from, connections[0].to]),
+		turnedOffPins: new Set([connections[1].from, connections[1].to]),
+	})
+	expect(computePinState(connections, [false])).toEqual({
+		turnedOnPins: new Set([connections[1].from, connections[1].to]),
+		turnedOffPins: new Set([connections[0].from, connections[0].to]),
+	})
 })
