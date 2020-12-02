@@ -1,4 +1,4 @@
-import { Component, evaluate } from "./computer"
+import { Component, evaluate, precompileConnections } from "./computer"
 
 export type TruthTableLookup = {
 	[key: string]: boolean[]
@@ -54,6 +54,11 @@ function createBinaryArray(value: number, arraySize = 1): boolean[] {
 }
 
 export function computeTruthTable(component: Component): TruthTable {
+	const precompiledConnections =
+		typeof component.operator !== "function"
+			? precompileConnections(component.operator.connections)
+			: undefined
+
 	return Array(2 ** component.operatorInputs)
 		.fill(undefined)
 		.map((_, index) => {
@@ -61,7 +66,7 @@ export function computeTruthTable(component: Component): TruthTable {
 
 			return {
 				params,
-				output: evaluate(component, params),
+				output: evaluate(component, params, precompiledConnections),
 			}
 		})
 }
@@ -83,15 +88,17 @@ export function truthTableToLookup(truthTable: TruthTable): TruthTableLookup {
 }
 
 export function lookupToTruthTable(truthTable: TruthTableLookup): TruthTable {
-	return Object.entries(truthTable).map(([key, output]) => {
-		const params = key.split("").map((x) => x === "1")
+	return Object.entries(truthTable)
+		.map(([key, output]) => {
+			const params = key.split("").map((x) => x === "1")
 
-		return {
-			index: parseInt(key, 2),
-			params,
-			output,
-		}
-	}).sort((a, b) => a.index - b.index)
+			return {
+				index: parseInt(key, 2),
+				params,
+				output,
+			}
+		})
+		.sort((a, b) => a.index - b.index)
 }
 
 export const truthTables = {

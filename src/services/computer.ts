@@ -132,7 +132,11 @@ export class Component {
 	}
 }
 
-export function evaluate(component: Component, inputs: boolean[]): boolean[] {
+export function evaluate(
+	component: Component,
+	inputs: boolean[],
+	precompiledConnections?: PrecompiledConnections,
+): boolean[] {
 	if (component.truthTable) {
 		return getResultFromTruthTable(component.truthTable, inputs)
 	}
@@ -142,7 +146,10 @@ export function evaluate(component: Component, inputs: boolean[]): boolean[] {
 	}
 
 	const output = Array(component.operator.outputs).fill(false)
-	const { turnedOnPins } = computePinState(component.operator.connections, inputs)
+	const { turnedOnPins } = computePinState(
+		precompiledConnections ?? component.operator.connections,
+		inputs,
+	)
 	for (const pin of turnedOnPins.values()) {
 		if (pin.type === "global-input") {
 			output[pin.index] = true
@@ -152,23 +159,16 @@ export function evaluate(component: Component, inputs: boolean[]): boolean[] {
 	return output
 }
 
-export interface PinState {
-	turnedOnPins: Set<Pin>
-	turnedOffPins: Set<Pin>
+interface PrecompiledConnections {
+	inputConnections: { readonly [index: number]: readonly Connection[] | undefined }
+	toConnections: { readonly [chipKey: string]: readonly Connection[] | undefined }
+	startQueue: readonly Pin[]
 }
 
-export function computePinState(connections: Connection[], inputs: boolean[]): PinState {
-	const turnedOnPins = new Set<Pin>()
-	const turnedOffPins = new Set<Pin>()
-
-	// Precalculation for all connections for all chips (and inputs and outputs),
-	// so less looping is required in main loop
-	const chipInputs: { [chipKey: string]: Set<Pin> | undefined } = {}
+export function precompileConnections(connections: Connection[]): PrecompiledConnections {
 	const inputConnections: { [index: number]: Connection[] | undefined } = {}
 	const toConnections: { [chipKey: string]: Connection[] | undefined } = {}
-	const evaluatedChips = new Set<string>()
-
-	const queue: Pin[] = []
+	const startQueue: Pin[] = []
 
 	for (const connection of connections) {
 		const { from } = connection
@@ -186,14 +186,43 @@ export function computePinState(connections: Connection[], inputs: boolean[]): P
 				inputConnections[from.index] = [connection]
 			}
 
-			queue.push(from)
+			startQueue.push(from)
 		}
 	}
 
-	let i = 0
-	while (queue.length) {
-		i++
+	return {
+		inputConnections,
+		toConnections,
+		startQueue,
+	}
+}
 
+interface PinState {
+	turnedOnPins: Set<Pin>
+	turnedOffPins: Set<Pin>
+}
+
+const turnedOnPins = new Set<Pin>()
+const turnedOffPins = new Set<Pin>()
+const evaluatedChips = new Set<string>()
+
+export function computePinState(
+	connections: Connection[] | PrecompiledConnections,
+	inputs: boolean[],
+): PinState {
+	const { inputConnections, toConnections, startQueue } = Array.isArray(connections)
+		? precompileConnections(connections)
+		: connections
+
+	const chipInputs: { [chipKey: string]: Set<Pin> | undefined } = {}
+	const queue = [...startQueue]
+
+	turnedOnPins.clear()
+	turnedOffPins.clear()
+	evaluatedChips.clear()
+
+
+	while (queue.length) {
 		const currentPin = queue.shift() as typeof queue[0]
 
 		if (currentPin.type === "global-output") {
@@ -261,8 +290,6 @@ export function computePinState(connections: Connection[], inputs: boolean[]): P
 			evaluatedChips.add(key)
 		}
 	}
-
-	console.log(`${i} iterations`)
 
 	return {
 		turnedOnPins,
