@@ -216,7 +216,7 @@
 					:x="gate.x"
 					:width="gate.width"
 					@click.right="promptDeleteGate(gate.gate)"
-					@mousedown.left="createAndMove($event, gate.gate)"
+					@mousedown.left="createAndMove($event, gate)"
 					y="8"
 					class="gate-picker-button"
 					fill="#444"
@@ -427,7 +427,7 @@ export default defineComponent({
 			},
 		})
 
-		function createAndMove(event: MouseEvent | TouchEvent, gate: Gate): void {
+		function createAndMove(event: MouseEvent | TouchEvent, gate: typeof computedAvailableGates.value[0]): void {
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
@@ -436,9 +436,9 @@ export default defineComponent({
 
 			const newChip: Chip = {
 				key: uuid.v4(),
-				x: 64 + 32,
-				y: 50 + 32,
-				gate,
+				x: gate.x,
+				y: 58,
+				gate: gate.gate,
 			}
 
 			chips.value = [...chips.value, newChip]
