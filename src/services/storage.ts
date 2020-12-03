@@ -1,8 +1,7 @@
 import * as lz from "lz-string"
-import { markRaw } from "vue"
 import * as uuid from "uuid"
 import { colors } from "./colors"
-import { AND, Component, CustomOperator, Pin, NOT, Operator, Chip } from "./computer"
+import { AND, NOT, Component, CustomOperator, Pin, Operator, Chip, Connection } from "./computer"
 import { TruthTableLookup } from "./truthTable"
 
 const defaultComponents = [
@@ -10,26 +9,33 @@ const defaultComponents = [
 	new Component("NOT", NOT, colors[0]).disableDelete(),
 ]
 
-interface PreserializedCustomOperator {
-	connections: {
-		from: {
-			type: Pin["type"]
-			index: number
-			chip: PreserializedChip
-		}
-		to: {
-			type: Pin["type"]
-			index: number
-			chip: PreserializedChip
-		}
-	}[]
-}
-
 interface PreserializedChip {
 	key: string
 	x: number
 	y: number
 	component: PreserializedComponent["key"]
+}
+
+interface PreserializedGlobalPin {
+	type: "global-input" | "global-output"
+	index: number
+}
+
+interface PreserializedChipPin {
+	type: "input" | "output"
+	index: number
+	chip: PreserializedChip
+}
+
+type PreserializedPin = PreserializedGlobalPin | PreserializedChipPin
+
+interface PreserializedConnection {
+	from: PreserializedPin
+	to: PreserializedPin
+}
+
+interface PreserializedCustomOperator {
+	connections: PreserializedConnection[]
 }
 
 interface PreserializedComponent {
@@ -53,6 +59,27 @@ function preserializeChip(chip: Chip): PreserializedChip {
 	}
 }
 
+function preserializeConnection({ from, to }: Connection): PreserializedConnection {
+	return {
+		from:
+			"chip" in from
+				? {
+						type: from.type,
+						index: from.index,
+						chip: preserializeChip(from.chip),
+				  }
+				: from,
+		to:
+			"chip" in to
+				? {
+						type: to.type,
+						index: to.index,
+						chip: preserializeChip(to.chip),
+				  }
+				: to,
+	}
+}
+
 function preserializeComponent(component: Component): PreserializedComponent {
 	return {
 		key: component.key,
@@ -67,26 +94,9 @@ function preserializeComponent(component: Component): PreserializedComponent {
 			? null
 			: typeof component.operator === "function"
 			? component.operator.name
-			: ({
-					connections: component.operator.connections.map(({ from, to }) => ({
-						from:
-							"chip" in from
-								? {
-										type: from.type,
-										index: from.index,
-										chip: preserializeChip(from.chip),
-								  }
-								: from,
-						to:
-							"chip" in to
-								? {
-										type: to.type,
-										index: to.index,
-										chip: preserializeChip(to.chip),
-								  }
-								: to,
-					})),
-			  } as PreserializedCustomOperator),
+			: {
+					connections: component.operator.connections.map(preserializeConnection),
+			  },
 	}
 }
 
@@ -111,21 +121,21 @@ function deserializeComponent(content: any): Component {
 		throw new Error("Failed deserializing component, no color defined in component")
 	}
 
+	if (Number.isNaN(content.operatorInputs) || Number.isNaN(content.operatorOutputs)) {
+		throw new Error(`Failed deserializing component, no input (or/and) output count set`)
+	}
+
 	const serializedComponent = content as PreserializedComponent
 
 	let operator: Operator | CustomOperator
 
-	if (serializedComponent.operator === null) {
-		if (Number.isNaN(content.operatorInputs) || Number.isNaN(content.operatorOutputs)) {
-			throw new Error(`Failed deserializing deleted component, no input and output count set`)
-		}
-
+	if (serializedComponent.operator === null && serializedComponent.deleted) {
 		operator = {
 			inputs: content.operatorInputs,
 			outputs: content.operatorOutputs,
 			get connections(): never {
 				throw new Error(
-					`Can not evaluate deleted component, as it doesn't store it's internal contents`,
+					`Can not get connections of deleted component, as it doesn't store it's internal contents`,
 				)
 			},
 		}
@@ -136,10 +146,10 @@ function deserializeComponent(content: any): Component {
 			operator = NOT
 		} else {
 			throw new Error(
-				`Failed deserializing component, unknown operator: '${serializedComponent.operator}'`,
+				`Failed deserializing component, unknown function operator: '${serializedComponent.operator}'`,
 			)
 		}
-	} else if ("connections" in serializedComponent.operator) {
+	} else if (serializedComponent.operator && "connections" in serializedComponent.operator) {
 		operator = {
 			inputs: serializedComponent.inputs,
 			outputs: serializedComponent.outputs,
@@ -158,16 +168,20 @@ function deserializeComponent(content: any): Component {
 			})),
 		}
 	} else {
-		throw new Error("Failed deserializing component, unknown data structure")
+		throw new Error(
+			`Failed deserializing component, unknown data structure:\n${JSON.stringify(
+				content,
+				null,
+				2,
+			)}`,
+		)
 	}
 
-	return markRaw(
-		Object.assign(new Component(content.name, operator, content.color, content.truthTable), {
-			key: content.key,
-			deleted: content.deleted ?? false,
-			canBeDeleted: content.canBeDeleted ?? false,
-		} as { [K in keyof Component]: Component[K] }),
-	)
+	return Object.assign(new Component(content.name, operator, content.color, content.truthTable), {
+		key: content.key,
+		deleted: content.deleted ?? false,
+		canBeDeleted: content.canBeDeleted ?? false,
+	} as { [K in keyof Component]: Component[K] })
 }
 
 export function loadComponents(): Component[] {
