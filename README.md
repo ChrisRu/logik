@@ -6,7 +6,7 @@ Explore and play with logic gates in the web browser. Build anything from your s
 
 ## How to use
 
-The app uses left and right click heavily. Use left click to move and drag new connections from the pins. Use right click to delete components and connections.
+The app uses left and right click heavily. Use left click to move and drag new connections from the pins. Use right click to delete gates/chips and connections.
 
 ## Development
 

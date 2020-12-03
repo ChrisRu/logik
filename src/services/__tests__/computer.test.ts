@@ -1,9 +1,5 @@
 import {
-	AND,
-	NOT,
-	NAND,
-	OR,
-	Component,
+	Gate,
 	CustomOperator,
 	Operator,
 	Pin,
@@ -12,10 +8,11 @@ import {
 	evaluate,
 	computePinState,
 	Connection,
+	operators,
 } from "../computer"
 import * as uuid from "uuid"
 
-it("should not be the same component", () => {
+it("should not be the same gate", () => {
 	const TRUE: Operator = () => [true]
 	const FALSE: Operator = () => [false]
 
@@ -25,19 +22,19 @@ it("should not be the same component", () => {
 				key: "x",
 				x: 0,
 				y: 0,
-				component: new Component("x", TRUE, "#ff0000"),
+				gate: new Gate("x", TRUE, "#ff0000"),
 			},
 			{
 				key: "y",
 				x: 0,
 				y: 0,
-				component: new Component("y", FALSE, "#000000"),
+				gate: new Gate("y", FALSE, "#000000"),
 			},
 		),
 	).toBeFalsy()
 })
 
-it("should not be the same component, even though they have similar contents", () => {
+it("should not be the same gate, even though they have similar contents", () => {
 	const FALSE: Operator = () => [false]
 
 	expect(
@@ -46,29 +43,29 @@ it("should not be the same component, even though they have similar contents", (
 				key: "x",
 				x: 0,
 				y: 0,
-				component: new Component("name", FALSE, "#000000"),
+				gate: new Gate("name", FALSE, "#000000"),
 			},
 			{
 				key: "y",
 				x: 0,
 				y: 0,
-				component: new Component("name", FALSE, "#000000"),
+				gate: new Gate("name", FALSE, "#000000"),
 			},
 		),
 	).toBeFalsy()
 })
 
-it("should be the same component", () => {
+it("should be the same gate", () => {
 	const FALSE: Operator = () => [false]
 
-	const component = {
+	const gate = {
 		key: "x",
 		x: 0,
 		y: 0,
-		component: new Component("name", FALSE, "#000000"),
+		gate: new Gate("name", FALSE, "#000000"),
 	}
 
-	expect(isSameChip(component, component)).toBeTruthy()
+	expect(isSameChip(gate, gate)).toBeTruthy()
 })
 
 it("should not be the same pin", () => {
@@ -80,7 +77,7 @@ it("should not be the same pin", () => {
 			key: "chip1",
 			x: 0,
 			y: 0,
-			component: new Component("test", FALSE, "#ff0000"),
+			gate: new Gate("test", FALSE, "#ff0000"),
 		},
 		type: "output",
 	}
@@ -93,7 +90,7 @@ it("should not be the same pin", () => {
 	expect(isSamePin(pin1, pin2)).toBeFalsy()
 })
 
-it("should not be the same pin with a different component", () => {
+it("should not be the same pin with a different gate", () => {
 	const FALSE: Operator = () => [false]
 
 	const pin1: Pin = {
@@ -102,7 +99,7 @@ it("should not be the same pin with a different component", () => {
 			key: "asdf",
 			x: 0,
 			y: 0,
-			component: new Component("", FALSE, "#fffff"),
+			gate: new Gate("", FALSE, "#fffff"),
 		},
 		type: "output",
 	}
@@ -113,7 +110,7 @@ it("should not be the same pin with a different component", () => {
 			key: "fdsa",
 			x: 0,
 			y: 0,
-			component: new Component("", FALSE, "#fffff"),
+			gate: new Gate("", FALSE, "#fffff"),
 		},
 		type: "output",
 	}
@@ -135,14 +132,14 @@ it("should be the same global input pin", () => {
 	expect(isSamePin(pin1, pin2)).toBeTruthy()
 })
 
-it("should be the same component pin", () => {
+it("should be the same gate pin", () => {
 	const FALSE: Operator = () => [false]
 
-	const component1 = new Component("name", FALSE, "#000000")
-	const component2 = Object.assign(
-		new Component("", FALSE, "#ffffff"),
-		JSON.parse(JSON.stringify(component1)),
-	) as Component
+	const gate1 = new Gate("name", FALSE, "#000000")
+	const gate2 = Object.assign(
+		new Gate("", FALSE, "#ffffff"),
+		JSON.parse(JSON.stringify(gate1)),
+	) as Gate
 
 	const pin1: Pin = {
 		index: 1,
@@ -150,7 +147,7 @@ it("should be the same component pin", () => {
 			key: "chip1",
 			x: 0,
 			y: 0,
-			component: component1,
+			gate: gate1,
 		},
 		type: "output",
 	}
@@ -161,7 +158,7 @@ it("should be the same component pin", () => {
 			key: "chip1",
 			x: 0,
 			y: 0,
-			component: component2,
+			gate: gate2,
 		},
 		type: "output",
 	}
@@ -171,50 +168,46 @@ it("should be the same component pin", () => {
 
 it("should evaluate basic operator", () => {
 	const operator: Operator = () => [false]
-	const component = new Component("FALSE", operator, "#ff0000")
+	const gate = new Gate("FALSE", operator, "#ff0000")
 
-	expect(evaluate(component, [])).toEqual([false])
+	expect(evaluate(gate, [])).toEqual([false])
 })
 
 it("should evaluate NAND operator", () => {
-	const operator = NAND
-	const component = new Component("NAND", operator, "#ff0000")
+	const gate = new Gate("NAND", operators.NAND, "#ff0000")
 
-	expect(evaluate(component, [false, false])).toEqual([true])
-	expect(evaluate(component, [false, true])).toEqual([true])
-	expect(evaluate(component, [false, true])).toEqual([true])
-	expect(evaluate(component, [true, true])).toEqual([false])
+	expect(evaluate(gate, [false, false])).toEqual([true])
+	expect(evaluate(gate, [false, true])).toEqual([true])
+	expect(evaluate(gate, [false, true])).toEqual([true])
+	expect(evaluate(gate, [true, true])).toEqual([false])
 })
 
 it("should evaluate AND operator", () => {
-	const operator = AND
-	const component = new Component("AND", operator, "#ff0000")
+	const gate = new Gate("AND", operators.AND, "#ff0000")
 
-	expect(evaluate(component, [false, false])).toEqual([false])
-	expect(evaluate(component, [false, true])).toEqual([false])
-	expect(evaluate(component, [false, true])).toEqual([false])
-	expect(evaluate(component, [true, true])).toEqual([true])
+	expect(evaluate(gate, [false, false])).toEqual([false])
+	expect(evaluate(gate, [false, true])).toEqual([false])
+	expect(evaluate(gate, [false, true])).toEqual([false])
+	expect(evaluate(gate, [true, true])).toEqual([true])
 })
 
 it("should evaluate NOT operator", () => {
-	const operator = NOT
-	const component = new Component("NOT", operator, "#ff0000")
+	const gate = new Gate("NOT", operators.NOT, "#ff0000")
 
-	expect(evaluate(component, [false])).toEqual([true])
-	expect(evaluate(component, [true])).toEqual([false])
+	expect(evaluate(gate, [false])).toEqual([true])
+	expect(evaluate(gate, [true])).toEqual([false])
 })
 
 it("should evaluate OR operator", () => {
-	const operator = OR
-	const component = new Component("OR", operator, "#ff0000")
+	const gate = new Gate("OR", operators.OR, "#ff0000")
 
-	expect(evaluate(component, [false, false])).toEqual([false])
-	expect(evaluate(component, [false, true])).toEqual([true])
-	expect(evaluate(component, [false, true])).toEqual([true])
-	expect(evaluate(component, [true, true])).toEqual([true])
+	expect(evaluate(gate, [false, false])).toEqual([false])
+	expect(evaluate(gate, [false, true])).toEqual([true])
+	expect(evaluate(gate, [false, true])).toEqual([true])
+	expect(evaluate(gate, [true, true])).toEqual([true])
 })
 
-it("should evaluate custom direct component", () => {
+it("should evaluate custom direct gate", () => {
 	const operator: CustomOperator = {
 		connections: [
 			{
@@ -243,22 +236,22 @@ it("should evaluate custom direct component", () => {
 		inputs: 2,
 		outputs: 2,
 	}
-	const component = new Component("CUSTOM", operator, "#00ff00")
+	const gate = new Gate("CUSTOM", operator, "#00ff00")
 
-	expect(evaluate(component, [false, false])).toEqual([false, false])
-	expect(evaluate(component, [true, false])).toEqual([false, true])
-	expect(evaluate(component, [false, true])).toEqual([true, false])
-	expect(evaluate(component, [true, true])).toEqual([true, true])
+	expect(evaluate(gate, [false, false])).toEqual([false, false])
+	expect(evaluate(gate, [true, false])).toEqual([false, true])
+	expect(evaluate(gate, [false, true])).toEqual([true, false])
+	expect(evaluate(gate, [true, true])).toEqual([true, true])
 })
 
-it("should evaluate custom NOT component", () => {
-	const NOTComponent = new Component("NOT", NOT, "#ff0000")
+it("should evaluate custom NOT gate", () => {
+	const NOTGate = new Gate("NOT", operators.NOT, "#ff0000")
 
 	const chip = {
 		key: "chip1",
 		x: 0,
 		y: 0,
-		component: NOTComponent,
+		gate: NOTGate,
 	}
 
 	const operator: CustomOperator = {
@@ -291,14 +284,14 @@ it("should evaluate custom NOT component", () => {
 		inputs: 1,
 		outputs: 1,
 	}
-	const component = new Component("INV", operator, "#880088")
+	const gate = new Gate("INV", operator, "#880088")
 
-	expect(evaluate(component, [false])).toEqual([true])
-	expect(evaluate(component, [true])).toEqual([false])
+	expect(evaluate(gate, [false])).toEqual([true])
+	expect(evaluate(gate, [true])).toEqual([false])
 })
 
-it("should compute custom NOT component", () => {
-	const component = new Component("NOT", NOT, "#ff0000")
+it("should compute custom NOT gate", () => {
+	const gate = new Gate("NOT", operators.NOT, "#ff0000")
 
 	const connections: Connection[] = [
 		{
@@ -313,7 +306,7 @@ it("should compute custom NOT component", () => {
 					key: "chip1",
 					x: 0,
 					y: 0,
-					component,
+					gate: gate,
 				},
 				type: "input",
 			},
@@ -326,7 +319,7 @@ it("should compute custom NOT component", () => {
 					key: "chip1",
 					x: 0,
 					y: 0,
-					component,
+					gate: gate,
 				},
 				type: "output",
 			},

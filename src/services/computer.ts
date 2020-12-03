@@ -9,19 +9,40 @@ import {
 
 export type Operator = (...params: (boolean | 0 | 1)[]) => boolean[]
 
-export const NOT: Operator = (a) => [!a]
+const NOT: Operator = (a) => [!a]
 
-export const AND: Operator = (a, b) => [!!a && !!b]
+const AND: Operator = (a, b) => [!!a && !!b]
 
-export const NAND: Operator = (a, b) => NOT(...AND(a, b))
+const NAND: Operator = (a, b) => NOT(...AND(a, b))
 
-export const OR: Operator = (a, b) => NAND(...NOT(a), ...NOT(b))
+const OR: Operator = (a, b) => NAND(...NOT(a), ...NOT(b))
 
-export const XOR: Operator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
+const XOR: Operator = (a, b) => AND(...NAND(a, b), ...OR(a, b))
 
-export const NOR: Operator = (a, b) => NOT(...OR(a, b))
+const NOR: Operator = (a, b) => NOT(...OR(a, b))
 
-export const XNOR: Operator = (a, b) => OR(...NOR(a, b), ...AND(a, b))
+const XNOR: Operator = (a, b) => OR(...NOR(a, b), ...AND(a, b))
+
+const NOTHING: Operator = (a) => [!!a]
+
+export const operators = {
+	NOT,
+	AND,
+	NAND,
+	OR,
+	XOR,
+	NOR,
+	XNOR,
+	NOTHING
+}
+
+export function getOperatorNameByOperator(operator: Operator) {
+	for (const [key, value] of Object.entries(operators)) {
+		if (value === operator) {
+			return key
+		}
+	}
+}
 
 export interface Point {
 	x: number
@@ -38,7 +59,7 @@ export interface Chip {
 	key: string
 	x: number
 	y: number
-	component: Component
+	gate: Gate
 }
 
 interface GlobalPin {
@@ -58,10 +79,6 @@ export interface Connection {
 	key: string
 	from: Pin
 	to: Pin
-}
-
-export function isSameComponent(a: Component, b: Component): boolean {
-	return a.key === b.key
 }
 
 export function isSamePin(a: Pin, b: Pin) {
@@ -88,7 +105,7 @@ export function isSameChip(a: Chip, b: Chip): boolean {
 	return a.key === b.key
 }
 
-export class Component {
+export class Gate {
 	readonly key: string
 	readonly operatorInputs: number
 	readonly operatorOutputs: number
@@ -134,21 +151,21 @@ export class Component {
 }
 
 export function evaluate(
-	component: Component,
+	gate: Gate,
 	inputs: boolean[],
 	precompiledConnections?: PrecompiledConnections,
 ): boolean[] {
-	if (component.truthTable) {
-		return getResultFromTruthTable(component.truthTable, inputs)
+	if (gate.truthTable) {
+		return getResultFromTruthTable(gate.truthTable, inputs)
 	}
 
-	if (typeof component.operator === "function") {
-		return component.operator(...inputs)
+	if (typeof gate.operator === "function") {
+		return gate.operator(...inputs)
 	}
 
-	const output = Array(component.operator.outputs).fill(false)
+	const output = Array(gate.operator.outputs).fill(false)
 	const { turnedOnPins } = computePinState(
-		precompiledConnections ?? component.operator.connections,
+		precompiledConnections ?? gate.operator.connections,
 		inputs,
 	)
 	for (const pin of turnedOnPins.values()) {
@@ -251,25 +268,25 @@ export function computePinState(
 				}
 			}
 		} else if (currentPin.type === "input") {
-			const { key, component } = currentPin.chip
+			const { key, gate } = currentPin.chip
 
 			if (evaluatedChips.has(key)) {
 				continue
 			}
 
 			const inputPins = chipInputs[key]
-			if (!inputPins || inputPins.size !== component.operatorInputs) {
+			if (!inputPins || inputPins.size !== gate.operatorInputs) {
 				continue
 			}
 
-			const params: boolean[] = Array(component.operatorInputs).fill(undefined)
+			const params: boolean[] = Array(gate.operatorInputs).fill(undefined)
 			for (const pin of inputPins) {
 				params[pin.index] = turnedOnPins.has(pin)
 			}
-			const outputs = evaluate(component, params)
+			const outputs = evaluate(gate, params)
 
 			for (const { from, to } of toConnections[key] ?? []) {
-				const on = outputs[from.index - component.operatorInputs]
+				const on = outputs[from.index - gate.operatorInputs]
 				if (on) {
 					turnedOnPins.add(from).add(to)
 				} else {

@@ -1,8 +1,8 @@
-import { AND, Component, NOT, Operator, NOR, OR, XNOR } from "../computer"
+import { operators, Gate } from "../computer"
 import { computeTruthTable, isSameTruthTable, truthTables, truthTableToLookup } from "../truthTable"
 
 it("should get correct NOT truth table", () => {
-	expect(computeTruthTable(new Component("NOT", NOT, "#ff0000"))).toEqual([
+	expect(computeTruthTable(new Gate("NOT", operators.NOT, "#ff0000"))).toEqual([
 		{
 			params: [false],
 			output: [true],
@@ -15,7 +15,7 @@ it("should get correct NOT truth table", () => {
 })
 
 it("should get correct AND truth table", () => {
-	expect(computeTruthTable(new Component("AND", AND, "#0000ff"))).toEqual([
+	expect(computeTruthTable(new Gate("AND", operators.AND, "#0000ff"))).toEqual([
 		{
 			params: [false, false],
 			output: [false],
@@ -40,12 +40,12 @@ it("should not be same empty truth table", () => {
 })
 
 it("should not be same NOT truth table empty", () => {
-	expect(isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [])).toBeFalsy()
+	expect(isSameTruthTable(computeTruthTable(new Gate("NOT", operators.NOT, "#00ff00")), [])).toBeFalsy()
 })
 
 it("should not be same NOT truth table extra", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Gate("NOT", operators.NOT, "#00ff00")), [
 			{
 				params: [true],
 				output: [false],
@@ -64,7 +64,7 @@ it("should not be same NOT truth table extra", () => {
 
 it("should be same NOT truth table", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Gate("NOT", operators.NOT, "#00ff00")), [
 			{
 				params: [false],
 				output: [true],
@@ -79,7 +79,7 @@ it("should be same NOT truth table", () => {
 
 it("should be same NOT truth table backwards", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("NOT", NOT, "#00ff00")), [
+		isSameTruthTable(computeTruthTable(new Gate("NOT", operators.NOT, "#00ff00")), [
 			{
 				params: [true],
 				output: [false],
@@ -94,7 +94,7 @@ it("should be same NOT truth table backwards", () => {
 
 it("should be same AND truth table", () => {
 	expect(
-		isSameTruthTable(computeTruthTable(new Component("AND", AND, "#880088")), [
+		isSameTruthTable(computeTruthTable(new Gate("AND", operators.AND, "#880088")), [
 			{
 				params: [false, false],
 				output: [false],
@@ -119,23 +119,23 @@ it("should have defined correct truth tables", () => {
 	expect(truthTables.NOTHING).toEqual(
 		truthTableToLookup(
 			computeTruthTable(
-				new Component("NOTHING", ((param: boolean) => [param]) as Operator, "#008800"),
+				new Gate("NOTHING", operators.NOTHING, "#008800"),
 			),
 		),
 	)
 	expect(truthTables.OR).toEqual(
-		truthTableToLookup(computeTruthTable(new Component("OR", OR, "#008800"))),
+		truthTableToLookup(computeTruthTable(new Gate("OR", operators.OR, "#008800"))),
 	)
 	expect(truthTables.AND).toEqual(
-		truthTableToLookup(computeTruthTable(new Component("AND", AND, "#008800"))),
+		truthTableToLookup(computeTruthTable(new Gate("AND", operators.AND, "#008800"))),
 	)
 	expect(truthTables.NOT).toEqual(
-		truthTableToLookup(computeTruthTable(new Component("NOT", NOT, "#008800"))),
+		truthTableToLookup(computeTruthTable(new Gate("NOT", operators.NOT, "#008800"))),
 	)
 	expect(truthTables.NOR).toEqual(
-		truthTableToLookup(computeTruthTable(new Component("NOR", NOR, "#008800"))),
+		truthTableToLookup(computeTruthTable(new Gate("NOR", operators.NOR, "#008800"))),
 	)
 	expect(truthTables.XNOR).toEqual(
-		truthTableToLookup(computeTruthTable(new Component("NOR", XNOR, "#008800"))),
+		truthTableToLookup(computeTruthTable(new Gate("NOR", operators.XNOR, "#008800"))),
 	)
 })

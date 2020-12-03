@@ -1,19 +1,28 @@
 import * as lz from "lz-string"
 import * as uuid from "uuid"
 import { colors } from "./colors"
-import { AND, NOT, Component, CustomOperator, Pin, Operator, Chip, Connection } from "./computer"
+import {
+	operators,
+	Gate,
+	CustomOperator,
+	Pin,
+	Operator,
+	Chip,
+	Connection,
+	getOperatorNameByOperator,
+} from "./computer"
 import { TruthTableLookup } from "./truthTable"
 
-const defaultComponents = [
-	new Component("AND", AND, colors[1]).disableDelete(),
-	new Component("NOT", NOT, colors[0]).disableDelete(),
+const defaultGates = [
+	new Gate("AND", operators.AND, colors[1]).disableDelete(),
+	new Gate("NOT", operators.NOT, colors[0]).disableDelete(),
 ]
 
 interface PreserializedChip {
 	key: string
 	x: number
 	y: number
-	component: PreserializedComponent["key"]
+	gate: PreserializedGate["key"]
 }
 
 interface PreserializedGlobalPin {
@@ -38,7 +47,7 @@ interface PreserializedCustomOperator {
 	connections: PreserializedConnection[]
 }
 
-interface PreserializedComponent {
+interface PreserializedGate {
 	key: string
 	name: string
 	color: string
@@ -55,7 +64,7 @@ function preserializeChip(chip: Chip): PreserializedChip {
 		key: chip.key,
 		x: chip.x,
 		y: chip.y,
-		component: chip.component.key,
+		gate: chip.gate.key,
 	}
 }
 
@@ -80,80 +89,87 @@ function preserializeConnection({ from, to }: Connection): PreserializedConnecti
 	}
 }
 
-function preserializeComponent(component: Component): PreserializedComponent {
+function preserializeGate(gate: Gate): PreserializedGate {
 	return {
-		key: component.key,
-		name: component.name,
-		color: component.color,
-		inputs: component.operatorInputs,
-		outputs: component.operatorOutputs,
-		canBeDeleted: component.canBeDeleted,
-		deleted: component.deleted,
-		truthTable: component.truthTable,
-		operator: component.deleted
+		key: gate.key,
+		name: gate.name,
+		color: gate.color,
+		inputs: gate.operatorInputs,
+		outputs: gate.operatorOutputs,
+		canBeDeleted: gate.canBeDeleted,
+		deleted: gate.deleted,
+		truthTable: gate.truthTable,
+		operator: gate.deleted
 			? null
-			: typeof component.operator === "function"
-			? component.operator.name
+			: typeof gate.operator === "function"
+			? getOperatorNameByOperator(gate.operator) ?? null
 			: {
-					connections: component.operator.connections.map(preserializeConnection),
+					connections: gate.operator.connections.map(preserializeConnection),
 			  },
 	}
 }
 
-function deserializeComponent(content: any): Component {
-	if (typeof content !== "object" || !content) {
-		throw new Error("Failed deserializing component, invalid component type")
+function deserializeGate(content: any): Gate {
+	if (!content) {
+		throw new Error("Failed deserializing gate, undefined gate supplied")
+	}
+
+	if (typeof content !== "object") {
+		throw new Error("Failed deserializing gate, invalid data structure for gate")
 	}
 
 	if (!("key" in content)) {
-		throw new Error("Failed deserializing component, no key defined in component")
+		throw new Error("Failed deserializing gate, no key defined in gate")
 	}
 
 	if (!("operator" in content)) {
-		throw new Error("Failed deserializing component, no operator defined in component")
+		throw new Error("Failed deserializing gate, no operator defined in gate")
 	}
 
 	if (!("name" in content)) {
-		throw new Error("Failed deserializing component, no name defined in component")
+		throw new Error("Failed deserializing gate, no name defined in gate")
 	}
 
 	if (!("color" in content)) {
-		throw new Error("Failed deserializing component, no color defined in component")
+		throw new Error("Failed deserializing gate, no color defined in gate")
 	}
 
 	if (Number.isNaN(content.operatorInputs) || Number.isNaN(content.operatorOutputs)) {
-		throw new Error(`Failed deserializing component, no input (or/and) output count set`)
+		throw new Error(`Failed deserializing gate, no input (or/and) output count set`)
 	}
 
-	const serializedComponent = content as PreserializedComponent
+	const serializedGate = content as PreserializedGate
 
 	let operator: Operator | CustomOperator
 
-	if (serializedComponent.operator === null && serializedComponent.deleted) {
+	if (serializedGate.operator === null && serializedGate.deleted) {
 		operator = {
 			inputs: content.operatorInputs,
 			outputs: content.operatorOutputs,
 			get connections(): never {
 				throw new Error(
-					`Can not get connections of deleted component, as it doesn't store it's internal contents`,
+					`Can not get connections of deleted gate, as it doesn't store it's internal contents`,
 				)
 			},
 		}
-	} else if (typeof serializedComponent.operator === "string") {
-		if (serializedComponent.operator === "AND") {
-			operator = AND
-		} else if (serializedComponent.operator === "NOT") {
-			operator = NOT
-		} else {
+	} else if (typeof serializedGate.operator === "string") {
+		const foundOperator =
+			serializedGate.operator in operators
+				? operators[serializedGate.operator as keyof typeof operators]
+				: undefined
+
+		if (!foundOperator) {
 			throw new Error(
-				`Failed deserializing component, unknown function operator: '${serializedComponent.operator}'`,
+				`Failed deserializing gate, unknown function operator: '${serializedGate.operator}'`,
 			)
 		}
-	} else if (serializedComponent.operator && "connections" in serializedComponent.operator) {
+
+		operator = foundOperator
+	} else if (serializedGate.operator && "connections" in serializedGate.operator) {
 		operator = {
-			inputs: serializedComponent.inputs,
-			outputs: serializedComponent.outputs,
-			connections: serializedComponent.operator.connections.map(({ from, to }) => ({
+			inputs: serializedGate.inputs,
+			outputs: serializedGate.outputs,
+			connections: serializedGate.operator.connections.map(({ from, to }) => ({
 				key: uuid.v4(),
 				from: {
 					type: from.type,
@@ -169,7 +185,7 @@ function deserializeComponent(content: any): Component {
 		}
 	} else {
 		throw new Error(
-			`Failed deserializing component, unknown data structure:\n${JSON.stringify(
+			`Failed deserializing gate, unknown data structure:\n${JSON.stringify(
 				content,
 				null,
 				2,
@@ -177,43 +193,43 @@ function deserializeComponent(content: any): Component {
 		)
 	}
 
-	return Object.assign(new Component(content.name, operator, content.color, content.truthTable), {
+	return Object.assign(new Gate(content.name, operator, content.color, content.truthTable), {
 		key: content.key,
 		deleted: content.deleted ?? false,
 		canBeDeleted: content.canBeDeleted ?? false,
-	} as { [K in keyof Component]: Component[K] })
+	} as { [K in keyof Gate]: Gate[K] })
 }
 
-export function loadComponents(): Component[] {
+export function loadStoredGates(): Gate[] {
 	try {
-		const compressedComponents = localStorage.getItem("logik:components")
-		if (!compressedComponents) {
-			return defaultComponents
+		const compressedGates = localStorage.getItem("logik:gates")
+		if (!compressedGates) {
+			return defaultGates
 		}
 
-		const serializedComponents = lz.decompressFromUTF16(compressedComponents)
-		if (!serializedComponents) {
+		const serializedGates = lz.decompressFromUTF16(compressedGates)
+		if (!serializedGates) {
 			throw new Error("Failed to decompress local storage item")
 		}
 
-		const preserializedComponents = JSON.parse(serializedComponents)
-		if (!Array.isArray(preserializedComponents)) {
+		const preserializedGates = JSON.parse(serializedGates)
+		if (!Array.isArray(preserializedGates)) {
 			throw new Error("Invalid data structure in local storage item")
 		}
 
-		const loadedComponents = preserializedComponents.map(deserializeComponent)
-		const deserializedComponents = Object.fromEntries(loadedComponents.map((c) => [c.key, c]))
+		const loadedGates = preserializedGates.map(deserializeGate)
+		const deserializedGates = Object.fromEntries(loadedGates.map((c) => [c.key, c]))
 
-		for (const component of loadedComponents) {
-			if (!component.deleted && typeof component.operator !== "function") {
-				for (const connection of component.operator.connections) {
+		for (const gate of loadedGates) {
+			if (!gate.deleted && typeof gate.operator !== "function") {
+				for (const connection of gate.operator.connections) {
 					if ("chip" in connection.from) {
 						connection.from.chip = {
 							key: connection.from.chip.key,
 							x: connection.from.chip.x,
 							y: connection.from.chip.y,
-							component:
-								deserializedComponents[(connection.from.chip.component as unknown) as string],
+							gate:
+								deserializedGates[(connection.from.chip.gate as unknown) as string],
 						}
 					}
 
@@ -222,27 +238,27 @@ export function loadComponents(): Component[] {
 							key: connection.to.chip.key,
 							x: connection.to.chip.x,
 							y: connection.to.chip.y,
-							component:
-								deserializedComponents[(connection.to.chip.component as unknown) as string],
+							gate:
+								deserializedGates[(connection.to.chip.gate as unknown) as string],
 						}
 					}
 				}
 			}
 		}
 
-		return loadedComponents
+		return loadedGates
 	} catch (error) {
-		console.error("Stored components are invalid", error)
-		localStorage.removeItem("logik:components")
+		console.error("Stored gates are invalid", error)
+		localStorage.removeItem("logik:gates")
 	}
 
-	return defaultComponents
+	return defaultGates
 }
 
-export function storeComponents(components: Component[]): void {
-	const preserializedComponents = components.map(preserializeComponent)
-	const serializedComponents = JSON.stringify(preserializedComponents)
-	const compressedComponents = lz.compressToUTF16(serializedComponents)
+export function storeGates(gates: Gate[]): void {
+	const preserializedGates = gates.map(preserializeGate)
+	const serializedGates = JSON.stringify(preserializedGates)
+	const compressedGates = lz.compressToUTF16(serializedGates)
 
-	localStorage.setItem("logik:components", compressedComponents)
+	localStorage.setItem("logik:gates", compressedGates)
 }

@@ -112,8 +112,8 @@
 			</g>
 		</g>
 
-		<!-- COMPONENTS -->
-		<g v-for="chip in chips" :key="chip.key" class="component">
+		<!-- CHIPS -->
+		<g v-for="chip in chips" :key="chip.key" class="chip">
 			<rect
 				:x="chip.x"
 				:y="chip.y"
@@ -208,23 +208,23 @@
 			</g>
 		</g>
 
-		<!-- COMPONENT PICKER -->
+		<!-- GATE PICKER -->
 		<g>
 			<rect x="64" y="0" width="952" height="50" fill="#282828" />
 			<g
-				class="component-picker"
-				v-for="(component, index) in availableComponents"
-				:key="component.key"
+				class="gate-picker"
+				v-for="(gate, index) in availableGates"
+				:key="gate.key"
 			>
 				<rect
-					class="component-picker-button"
+					class="gate-picker-button"
 					fill="#444"
-					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					:x="72 + availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
 					y="8"
 					height="34"
-					:width="component.width"
-					@click.right="verifyDeleteComponent(component)"
-					@mousedown.left="createAndMove($event, component)"
+					:width="gate.width"
+					@click.right="verifyDeleteGate(gate)"
+					@mousedown.left="createAndMove($event, gate)"
 				/>
 				<text
 					fill="white"
@@ -233,53 +233,53 @@
 					text-anchor="middle"
 					:x="
 						72 +
-						availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
-						component.width / 2
+						availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
+						gate.width / 2
 					"
 					y="27"
 				>
-					{{ component.name }}
+					{{ gate.name }}
 				</text>
 				<foreignObject
 					class="truth-table"
-					:x="72 + availableComponents.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
+					:x="72 + availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
 					y="58"
 					width="1"
 					height="1"
 				>
-					<truth-table :component="component" />
+					<truth-table :gate="gate" />
 				</foreignObject>
 			</g>
 			<foreignObject
-				:x="72 + availableComponents.reduce((count, x) => count + x.width + 8, 0)"
+				v-if="isCompleteGate"
+				:x="72 + availableGates.reduce((count, x) => count + x.width + 8, 0)"
 				y="6"
 				width="1"
 				height="1"
-				v-if="isCompleteComponent"
 			>
 				<div xmlns="http://www.w3.org/1999/xhtml">
 					<input
 						class="input"
-						placeholder="Component name"
+						placeholder="New gate name"
 						maxlength="12"
-						@keyup.enter="saveComponent($event.target.value)"
+						@keyup.enter="saveGate($event.target.value)"
 					/>
 				</div>
 			</foreignObject>
 		</g>
 
 		<!-- CONFIRM DELETE BUTTON -->
-		<foreignObject x="0" y="0" width="1080" height="720" v-if="componentToBeDeleted">
+		<foreignObject x="0" y="0" width="1080" height="720" v-if="gateToBeDeleted">
 			<modal
 				confirmMessage="Delete"
-				@accept="deleteComponent(componentToBeDeleted)"
-				@close="componentToBeDeleted = null"
+				@accept="deleteGate(gateToBeDeleted)"
+				@close="gateToBeDeleted = null"
 			>
 				Are you sure you want to permanently delete the
 				<u
-					><strong>{{ componentToBeDeleted.name }}</strong></u
+					><strong>{{ gateToBeDeleted.name }}</strong></u
 				>
-				component?
+				gate?
 			</modal>
 		</foreignObject>
 	</svg>
@@ -291,7 +291,7 @@ import * as uuid from "uuid"
 import {
 	Point,
 	Pin,
-	Component,
+	Gate,
 	Connection,
 	Chip,
 	computePinState,
@@ -301,7 +301,7 @@ import {
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
-import { loadComponents, storeComponents } from "../services/storage"
+import { loadStoredGates, storeGates } from "../services/storage"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
 import { isSameLookupTruthTable, truthTables } from "../services/truthTable"
@@ -330,27 +330,27 @@ export default defineComponent({
 	setup() {
 		const inputCount = ref<number>(1)
 		const outputs = ref<Output[]>([{ key: uuid.v4(), state: true }])
-		const availableComponents = shallowRef<Component[]>(loadComponents())
+		const availableGates = shallowRef<Gate[]>(loadStoredGates())
 		const chips = ref<Chip[]>([])
 		const connections = shallowRef<Connection[]>([])
 		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
-		const componentToBeDeleted = shallowRef<Component | null>(null)
+		const gateToBeDeleted = shallowRef<Gate | null>(null)
 
-		function verifyDeleteComponent(component: Component) {
-			if (component.canBeDeleted) {
-				componentToBeDeleted.value = component
+		function verifyDeleteGate(gate: Gate) {
+			if (gate.canBeDeleted) {
+				gateToBeDeleted.value = gate
 			}
 		}
 
-		function deleteComponent(component: Component) {
-			componentToBeDeleted.value = null
-			if (component.canBeDeleted) {
-				component.deleted = true
-				// Refresh availableComponents to update the UI as it's a shallowRef (for computation performance reasons)
-				availableComponents.value = [...availableComponents.value]
+		function deleteGate(gate: Gate) {
+			gateToBeDeleted.value = null
+			if (gate.canBeDeleted) {
+				gate.deleted = true
+				// Refresh availableGates to update the UI as it's a shallowRef (for computation performance reasons)
+				availableGates.value = [...availableGates.value]
 			}
 
-			storeComponents(availableComponents.value)
+			storeGates(availableGates.value)
 		}
 
 		function addOutput(): Pin {
@@ -427,21 +427,21 @@ export default defineComponent({
 
 		const move = createDragFunction<Chip>({
 			withPointerOffset: true,
-			onStart(component) {
-				chips.value = [...chips.value.filter((c) => !isSameChip(c, component)), component]
+			onStart(gate) {
+				chips.value = [...chips.value.filter((c) => !isSameChip(c, gate)), gate]
 			},
 			onUpdate({ x, y }, chip) {
 				const maxLeft = 64
 				const maxTop = 50
-				const maxRight = 1080 - chip.component.width - 64
-				const maxBottom = 720 - chip.component.height
+				const maxRight = 1080 - chip.gate.width - 64
+				const maxBottom = 720 - chip.gate.height
 
 				chip.x = Math.min(Math.max(maxLeft, x), maxRight)
 				chip.y = Math.min(Math.max(maxTop, y), maxBottom)
 			},
 		})
 
-		function createAndMove(event: MouseEvent | TouchEvent, component: Component): void {
+		function createAndMove(event: MouseEvent | TouchEvent, gate: Gate): void {
 			const root =
 				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
 			if (!root) {
@@ -452,7 +452,7 @@ export default defineComponent({
 				key: uuid.v4(),
 				x: 64 + 32,
 				y: 50 + 32,
-				component,
+				gate,
 			}
 
 			chips.value = [...chips.value, newChip]
@@ -570,13 +570,13 @@ export default defineComponent({
 			switch (pin.type) {
 				case "output":
 					return {
-						x: pin.chip.x + pin.chip.component.width,
+						x: pin.chip.x + pin.chip.gate.width,
 						y:
 							pin.chip.y +
-							pin.chip.component.height / 2 +
+							pin.chip.gate.height / 2 +
 							(pin.index -
-								pin.chip.component.operatorInputs -
-								pin.chip.component.operatorOutputs / 2) *
+								pin.chip.gate.operatorInputs -
+								pin.chip.gate.operatorOutputs / 2) *
 								18.4 +
 							10,
 					}
@@ -585,8 +585,8 @@ export default defineComponent({
 						x: pin.chip.x,
 						y:
 							pin.chip.y +
-							pin.chip.component.height / 2 +
-							(pin.index - pin.chip.component.operatorInputs / 2) * 18.4 +
+							pin.chip.gate.height / 2 +
+							(pin.index - pin.chip.gate.operatorInputs / 2) * 18.4 +
 							10,
 					}
 				case "global-output":
@@ -611,22 +611,22 @@ export default defineComponent({
 			chips.value = chips.value.filter((c) => !isSameChip(c, chip))
 		}
 
-		function saveComponent(name: string) {
+		function saveGate(name: string) {
 			name = name.trim().toUpperCase()
 			if (!name) {
 				return
 			}
 
 			const availableColors = colors.filter(
-				(color) => !availableComponents.value.some((component) => component.color === color),
+				(color) => !availableGates.value.some((gate) => gate.color === color),
 			)
 			const color =
 				availableColors.length > 0
 					? availableColors[Math.floor(Math.random() * availableColors.length)]
 					: createRandomColor()
 
-			const newComponent = markRaw(
-				new Component(
+			const newGate = markRaw(
+				new Gate(
 					name,
 					{
 						connections: [...connections.value],
@@ -637,35 +637,35 @@ export default defineComponent({
 				),
 			)
 
-			availableComponents.value = [...availableComponents.value, newComponent]
+			availableGates.value = [...availableGates.value, newGate]
 
 			clear()
 
 			setTimeout(() => {
-				storeComponents(availableComponents.value)
+				storeGates(availableGates.value)
 
 				let message = ""
 
 				if (
-					(newComponent.name === "XOR" || newComponent.name === "X-OR") &&
-					!isSameLookupTruthTable(truthTables.XOR, newComponent.truthTable)
+					(newGate.name === "XOR" || newGate.name === "X-OR") &&
+					!isSameLookupTruthTable(truthTables.XOR, newGate.truthTable)
 				) {
-					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
+					message = `You can name this mess an ${newGate.name}, but that won't make it behave like an ${newGate.name}`
 				} else if (
-					(newComponent.name === "XNOR" || newComponent.name === "X-NOR") &&
-					!isSameLookupTruthTable(truthTables.XNOR, newComponent.truthTable)
+					(newGate.name === "XNOR" || newGate.name === "X-NOR") &&
+					!isSameLookupTruthTable(truthTables.XNOR, newGate.truthTable)
 				) {
-					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
+					message = `You can name this mess an ${newGate.name}, but that won't make it behave like an ${newGate.name}`
 				} else if (
-					newComponent.name === "NOR" &&
-					!isSameLookupTruthTable(truthTables.NOR, newComponent.truthTable)
+					newGate.name === "NOR" &&
+					!isSameLookupTruthTable(truthTables.NOR, newGate.truthTable)
 				) {
-					message = `You can name this mess an ${newComponent.name}, but that won't make it behave like an ${newComponent.name}`
-				} else if (isSameLookupTruthTable(truthTables.NOTHING, newComponent.truthTable)) {
-					message = "That doesn't seem to useful of a component now, does it?"
-				} else if (isSameLookupTruthTable(truthTables.NOT, newComponent.truthTable)) {
-					message = "I'm pretty sure you already got a similar component to this, friend"
-				} else if (isSameLookupTruthTable(truthTables.AND, newComponent.truthTable)) {
+					message = `You can name this mess an ${newGate.name}, but that won't make it behave like an ${newGate.name}`
+				} else if (isSameLookupTruthTable(truthTables.NOTHING, newGate.truthTable)) {
+					message = "That doesn't seem to useful of a gate now, does it?"
+				} else if (isSameLookupTruthTable(truthTables.NOT, newGate.truthTable)) {
+					message = "I'm pretty sure you already got a similar gate to this, friend"
+				} else if (isSameLookupTruthTable(truthTables.AND, newGate.truthTable)) {
 					message = "Another AND gate, daring today are we"
 				}
 
@@ -737,12 +737,12 @@ export default defineComponent({
 				key: chip.key,
 				x: chip.x,
 				y: chip.y,
-				name: chip.component.name,
-				width: chip.component.width,
-				height: chip.component.height,
-				color: chip.component.color,
-				component: chip.component,
-				inputPins: Array(chip.component.operatorInputs)
+				name: chip.gate.name,
+				width: chip.gate.width,
+				height: chip.gate.height,
+				color: chip.gate.color,
+				gate: chip.gate,
+				inputPins: Array(chip.gate.operatorInputs)
 					.fill(undefined)
 					.map((_, index) => {
 						const pin: Pin = {
@@ -757,10 +757,10 @@ export default defineComponent({
 							...getPinLocation(pin),
 						}
 					}),
-				outputPins: Array(chip.component.operatorOutputs)
+				outputPins: Array(chip.gate.operatorOutputs)
 					.fill(undefined)
 					.map((_, pinIndex) => {
-						const index = pinIndex + chip.component.operatorInputs
+						const index = pinIndex + chip.gate.operatorInputs
 						const pin: Pin = {
 							type: "output",
 							index,
@@ -795,7 +795,7 @@ export default defineComponent({
 			if (pin.type === "global-output") {
 				return outputs.value[pin.index].state
 			} else if (pin.type === "output") {
-				const params = Array(pin.chip.component.operatorInputs).fill(undefined)
+				const params = Array(pin.chip.gate.operatorInputs).fill(undefined)
 
 				for (const { from, to } of connections.value) {
 					if ("chip" in to && isSameChip(to.chip, pin.chip)) {
@@ -813,7 +813,7 @@ export default defineComponent({
 					return false
 				}
 
-				return evaluate(pin.chip.component, params)[pin.index - pin.chip.component.operatorInputs]
+				return evaluate(pin.chip.gate, params)[pin.index - pin.chip.gate.operatorInputs]
 			}
 
 			return false
@@ -837,15 +837,15 @@ export default defineComponent({
 			}
 		})
 
-		const isCompleteComponent = computed(() => {
+		const isCompleteGate = computed(() => {
 			const hasInput = connections.value.some(({ to }) => to.type === "global-input")
 			const hasOutput = connections.value.some(({ from }) => from.type === "global-output")
 
 			return hasInput && hasOutput
 		})
 
-		const computedAvailableComponents = computed(() =>
-			availableComponents.value.filter(({ deleted }) => !deleted),
+		const computedAvailableGates = computed(() =>
+			availableGates.value.filter(({ deleted }) => !deleted),
 		)
 
 		return {
@@ -853,7 +853,7 @@ export default defineComponent({
 			outputs: calculatedOutputs,
 			chips: calculatedChips,
 			connections: calculatedConnections,
-			availableComponents: computedAvailableComponents,
+			availableGates: computedAvailableGates,
 			addOutputLocation,
 			addInputLocation,
 			drawingLineStatus,
@@ -867,11 +867,11 @@ export default defineComponent({
 			endDrawOnNewPin,
 			move,
 			createAndMove,
-			isCompleteComponent,
-			saveComponent,
-			verifyDeleteComponent,
-			deleteComponent,
-			componentToBeDeleted,
+			isCompleteGate,
+			saveGate,
+			verifyDeleteGate,
+			deleteGate,
+			gateToBeDeleted,
 		}
 	},
 })
@@ -904,7 +904,7 @@ foreignObject {
 	background: $bg;
 }
 
-.component {
+.gate {
 	&:hover,
 	&:active {
 		rect {
@@ -913,7 +913,7 @@ foreignObject {
 	}
 }
 
-.component-picker-button {
+.gate-picker-button {
 	fill: $pin;
 	cursor: pointer;
 
@@ -922,7 +922,7 @@ foreignObject {
 	}
 }
 
-.component-picker {
+.gate-picker {
 	.truth-table {
 		pointer-events: none;
 		transition: opacity 0.1s;

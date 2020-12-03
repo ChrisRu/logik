@@ -27,19 +27,19 @@
 
 <script lang="ts">
 import { computed, defineComponent } from "vue"
-import { Component } from "../services/computer"
+import { Gate } from "../services/computer"
 import { lookupToTruthTable } from "../services/truthTable"
 
 export default defineComponent({
 	name: "TruthTable",
 	props: {
-		component: {
-			type: Component,
+		gate: {
+			type: Gate,
 			required: true,
 		},
 	},
-	setup({ component }) {
-		const truthTable = computed(() => lookupToTruthTable(component.truthTable))
+	setup({ gate }) {
+		const truthTable = computed(() => lookupToTruthTable(gate.truthTable))
 
 		return {
 			truthTable,

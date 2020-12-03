@@ -1,4 +1,4 @@
-import { Component, evaluate, precompileConnections } from "./computer"
+import { Gate, evaluate, precompileConnections } from "./computer"
 
 export type TruthTableLookup = {
 	[key: string]: boolean[]
@@ -53,20 +53,20 @@ function createBinaryArray(value: number, arraySize = 1): boolean[] {
 	return binaryArray
 }
 
-export function computeTruthTable(component: Component): TruthTable {
+export function computeTruthTable(gate: Gate): TruthTable {
 	const precompiledConnections =
-		typeof component.operator !== "function"
-			? precompileConnections(component.operator.connections)
+		typeof gate.operator !== "function"
+			? precompileConnections(gate.operator.connections)
 			: undefined
 
-	return Array(2 ** component.operatorInputs)
+	return Array(2 ** gate.operatorInputs)
 		.fill(undefined)
 		.map((_, index) => {
-			const params = createBinaryArray(index, component.operatorInputs)
+			const params = createBinaryArray(index, gate.operatorInputs)
 
 			return {
 				params,
-				output: evaluate(component, params, precompiledConnections),
+				output: evaluate(gate, params, precompiledConnections),
 			}
 		})
 }
