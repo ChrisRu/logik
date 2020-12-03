@@ -214,7 +214,7 @@
 			<g
 				class="component-picker"
 				v-for="(component, index) in availableComponents"
-				:key="component.name"
+				:key="component.key"
 			>
 				<rect
 					class="component-picker-button"
@@ -293,12 +293,11 @@ import {
 	Pin,
 	Component,
 	Connection,
+	Chip,
 	computePinState,
 	evaluate,
 	isSamePin,
 	isSameChip,
-	isSameComponent,
-	Chip,
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
 import { colors, createRandomColor } from "../services/colors"
@@ -346,9 +345,9 @@ export default defineComponent({
 		function deleteComponent(component: Component) {
 			componentToBeDeleted.value = null
 			if (component.canBeDeleted) {
-				availableComponents.value = availableComponents.value.filter(
-					(c) => !isSameComponent(c, component),
-				)
+				component.deleted = true
+				// Refresh availableComponents to update the UI as it's a shallowRef (for computation performance reasons)
+				availableComponents.value = [...availableComponents.value]
 			}
 
 			storeComponents(availableComponents.value)
@@ -845,14 +844,18 @@ export default defineComponent({
 			return hasInput && hasOutput
 		})
 
+		const computedAvailableComponents = computed(() =>
+			availableComponents.value.filter(({ deleted }) => !deleted),
+		)
+
 		return {
 			inputs: calculatedInputs,
 			outputs: calculatedOutputs,
 			chips: calculatedChips,
 			connections: calculatedConnections,
+			availableComponents: computedAvailableComponents,
 			addOutputLocation,
 			addInputLocation,
-			availableComponents,
 			drawingLineStatus,
 			drawingLinePath,
 			addOutput,

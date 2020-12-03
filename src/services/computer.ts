@@ -97,6 +97,7 @@ export class Component {
 	readonly name: string
 	readonly height: number
 	readonly width: number
+	deleted: boolean = false
 	color: string
 	canBeDeleted: boolean
 

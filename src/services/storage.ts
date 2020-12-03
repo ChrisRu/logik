@@ -1,5 +1,6 @@
 import * as lz from "lz-string"
 import { markRaw } from "vue"
+import * as uuid from "uuid"
 import { colors } from "./colors"
 import { AND, Component, CustomOperator, Pin, NOT, Operator, Chip } from "./computer"
 import { TruthTableLookup } from "./truthTable"
@@ -11,7 +12,6 @@ const defaultComponents = [
 
 interface PreserializedCustomOperator {
 	connections: {
-		key: string
 		from: {
 			type: Pin["type"]
 			index: number
@@ -38,9 +38,10 @@ interface PreserializedComponent {
 	color: string
 	inputs: number
 	outputs: number
-	operator: string | PreserializedCustomOperator
 	canBeDeleted: boolean
 	truthTable: TruthTableLookup
+	operator: string | PreserializedCustomOperator | null
+	deleted: boolean
 }
 
 function preserializeChip(chip: Chip): PreserializedChip {
@@ -60,37 +61,36 @@ function preserializeComponent(component: Component): PreserializedComponent {
 		inputs: component.operatorInputs,
 		outputs: component.operatorOutputs,
 		canBeDeleted: component.canBeDeleted,
+		deleted: component.deleted,
 		truthTable: component.truthTable,
-		operator:
-			typeof component.operator === "function"
-				? component.operator.name
-				: ({
-						connections: component.operator.connections.map(({ key, from, to }) => ({
-							key,
-							from:
-								"chip" in from
-									? {
-											type: from.type,
-											index: from.index,
-											chip: preserializeChip(from.chip),
-									  }
-									: from,
-							to:
-								"chip" in to
-									? {
-											type: to.type,
-											index: to.index,
-											chip: preserializeChip(to.chip),
-									  }
-									: to,
-						})),
-				  } as PreserializedCustomOperator),
+		operator: component.deleted
+			? null
+			: typeof component.operator === "function"
+			? component.operator.name
+			: ({
+					connections: component.operator.connections.map(({ from, to }) => ({
+						from:
+							"chip" in from
+								? {
+										type: from.type,
+										index: from.index,
+										chip: preserializeChip(from.chip),
+								  }
+								: from,
+						to:
+							"chip" in to
+								? {
+										type: to.type,
+										index: to.index,
+										chip: preserializeChip(to.chip),
+								  }
+								: to,
+					})),
+			  } as PreserializedCustomOperator),
 	}
 }
 
 function deserializeComponent(content: any): Component {
-	let operator: Operator | CustomOperator
-
 	if (typeof content !== "object" || !content) {
 		throw new Error("Failed deserializing component, invalid component type")
 	}
@@ -113,7 +113,23 @@ function deserializeComponent(content: any): Component {
 
 	const serializedComponent = content as PreserializedComponent
 
-	if (typeof serializedComponent.operator === "string") {
+	let operator: Operator | CustomOperator
+
+	if (serializedComponent.operator === null) {
+		if (Number.isNaN(content.operatorInputs) || Number.isNaN(content.operatorOutputs)) {
+			throw new Error(`Failed deserializing deleted component, no input and output count set`)
+		}
+
+		operator = {
+			inputs: content.operatorInputs,
+			outputs: content.operatorOutputs,
+			get connections(): never {
+				throw new Error(
+					`Can not evaluate deleted component, as it doesn't store it's internal contents`,
+				)
+			},
+		}
+	} else if (typeof serializedComponent.operator === "string") {
 		if (serializedComponent.operator === "AND") {
 			operator = AND
 		} else if (serializedComponent.operator === "NOT") {
@@ -127,8 +143,8 @@ function deserializeComponent(content: any): Component {
 		operator = {
 			inputs: serializedComponent.inputs,
 			outputs: serializedComponent.outputs,
-			connections: serializedComponent.operator.connections.map(({ key, from, to }) => ({
-				key,
+			connections: serializedComponent.operator.connections.map(({ from, to }) => ({
+				key: uuid.v4(),
 				from: {
 					type: from.type,
 					index: from.index,
@@ -148,8 +164,9 @@ function deserializeComponent(content: any): Component {
 	return markRaw(
 		Object.assign(new Component(content.name, operator, content.color, content.truthTable), {
 			key: content.key,
+			deleted: content.deleted ?? false,
 			canBeDeleted: content.canBeDeleted ?? false,
-		}),
+		} as { [K in keyof Component]: Component[K] }),
 	)
 }
 
@@ -174,7 +191,7 @@ export function loadComponents(): Component[] {
 		const deserializedComponents = Object.fromEntries(loadedComponents.map((c) => [c.key, c]))
 
 		for (const component of loadedComponents) {
-			if (typeof component.operator !== "function") {
+			if (!component.deleted && typeof component.operator !== "function") {
 				for (const connection of component.operator.connections) {
 					if ("chip" in connection.from) {
 						connection.from.chip = {

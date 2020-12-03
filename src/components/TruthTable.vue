@@ -1,7 +1,8 @@
 <template>
-	<div v-if="truthTable.length > 24" class="table-too-big">Truth table too big to display</div>
+	<div v-if="truthTable.length > 16" class="table-too-big">Truth table too big to display</div>
 	<table v-else class="table">
 		<tbody class="table-body">
+			<!--Keys as index, as the data should be static -->
 			<tr class="table-row" :key="index" v-for="(row, index) in truthTable">
 				<td
 					:class="`table-cell table-cell-param table-cell-${param ? '' : 'in'}active`"
