@@ -221,7 +221,6 @@ export function computePinState(
 	turnedOffPins.clear()
 	evaluatedChips.clear()
 
-
 	while (queue.length) {
 		const currentPin = queue.shift() as typeof queue[0]
 
@@ -269,7 +268,7 @@ export function computePinState(
 			const outputs = evaluate(component, params)
 
 			for (const { from, to } of toConnections[key] ?? []) {
-				const on = outputs[component.operatorInputs - from.index]
+				const on = outputs[from.index - component.operatorInputs]
 				if (on) {
 					turnedOnPins.add(from).add(to)
 				} else {
