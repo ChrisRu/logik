@@ -428,12 +428,6 @@ export default defineComponent({
 		})
 
 		function createAndMove(event: MouseEvent | TouchEvent, gate: typeof computedAvailableGates.value[0]): void {
-			const root =
-				event.currentTarget instanceof Element ? event.currentTarget.closest("svg") : null
-			if (!root) {
-				return
-			}
-
 			const newChip: Chip = {
 				key: uuid.v4(),
 				x: gate.x,
