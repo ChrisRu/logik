@@ -1,6 +1,6 @@
 import * as lz from "lz-string"
 import * as uuid from "uuid"
-import { colors } from "./colors"
+import { operatorColors } from "./colors"
 import {
 	operators,
 	Gate,
@@ -14,8 +14,8 @@ import {
 import { TruthTableLookup } from "./truthTable"
 
 const defaultGates = [
-	new Gate("AND", operators.AND, colors[1]).disableDelete(),
-	new Gate("NOT", operators.NOT, colors[0]).disableDelete(),
+	new Gate("AND", operators.AND, operatorColors.AND).disableDelete(),
+	new Gate("NOT", operators.NOT, operatorColors.NOT).disableDelete(),
 ]
 
 interface PreserializedChip {
@@ -185,11 +185,7 @@ function deserializeGate(content: any): Gate {
 		}
 	} else {
 		throw new Error(
-			`Failed deserializing gate, unknown data structure:\n${JSON.stringify(
-				content,
-				null,
-				2,
-			)}`,
+			`Failed deserializing gate, unknown data structure:\n${JSON.stringify(content, null, 2)}`,
 		)
 	}
 
@@ -228,8 +224,7 @@ export function loadStoredGates(): Gate[] {
 							key: connection.from.chip.key,
 							x: connection.from.chip.x,
 							y: connection.from.chip.y,
-							gate:
-								deserializedGates[(connection.from.chip.gate as unknown) as string],
+							gate: deserializedGates[(connection.from.chip.gate as unknown) as string],
 						}
 					}
 
@@ -238,8 +233,7 @@ export function loadStoredGates(): Gate[] {
 							key: connection.to.chip.key,
 							x: connection.to.chip.x,
 							y: connection.to.chip.y,
-							gate:
-								deserializedGates[(connection.to.chip.gate as unknown) as string],
+							gate: deserializedGates[(connection.to.chip.gate as unknown) as string],
 						}
 					}
 				}

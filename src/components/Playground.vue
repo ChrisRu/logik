@@ -211,43 +211,29 @@
 		<!-- GATE PICKER -->
 		<g>
 			<rect x="64" y="0" width="952" height="50" fill="#282828" />
-			<g
-				class="gate-picker"
-				v-for="(gate, index) in availableGates"
-				:key="gate.key"
-			>
+			<g class="gate-picker" v-for="gate in availableGates" :key="gate.key">
 				<rect
+					:x="gate.x"
+					:width="gate.width"
+					@click.right="promptDeleteGate(gate.gate)"
+					@mousedown.left="createAndMove($event, gate.gate)"
+					y="8"
 					class="gate-picker-button"
 					fill="#444"
-					:x="72 + availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
-					y="8"
 					height="34"
-					:width="gate.width"
-					@click.right="verifyDeleteGate(gate)"
-					@mousedown.left="createAndMove($event, gate)"
 				/>
 				<text
+					:x="gate.x + gate.width / 2"
+					y="27"
 					fill="white"
 					font-size="16"
 					dominant-baseline="middle"
 					text-anchor="middle"
-					:x="
-						72 +
-						availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0) +
-						gate.width / 2
-					"
-					y="27"
 				>
 					{{ gate.name }}
 				</text>
-				<foreignObject
-					class="truth-table"
-					:x="72 + availableGates.slice(0, index).reduce((count, x) => count + x.width + 8, 0)"
-					y="58"
-					width="1"
-					height="1"
-				>
-					<truth-table :gate="gate" />
+				<foreignObject :x="gate.x" y="58" width="1" height="1" class="truth-table">
+					<truth-table :gate="gate.gate" />
 				</foreignObject>
 			</g>
 			<foreignObject
@@ -300,7 +286,7 @@ import {
 	isSameChip,
 } from "../services/computer"
 import { createDragFunction } from "../services/drag"
-import { colors, createRandomColor } from "../services/colors"
+import { colors, createRandomDarkColor, operatorColors } from "../services/colors"
 import { loadStoredGates, storeGates } from "../services/storage"
 import TruthTable from "./TruthTable.vue"
 import Modal from "./Modal.vue"
@@ -336,7 +322,7 @@ export default defineComponent({
 		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
 		const gateToBeDeleted = shallowRef<Gate | null>(null)
 
-		function verifyDeleteGate(gate: Gate) {
+		function promptDeleteGate(gate: Gate) {
 			if (gate.canBeDeleted) {
 				gateToBeDeleted.value = gate
 			}
@@ -574,9 +560,7 @@ export default defineComponent({
 						y:
 							pin.chip.y +
 							pin.chip.gate.height / 2 +
-							(pin.index -
-								pin.chip.gate.operatorInputs -
-								pin.chip.gate.operatorOutputs / 2) *
+							(pin.index - pin.chip.gate.operatorInputs - pin.chip.gate.operatorOutputs / 2) *
 								18.4 +
 							10,
 					}
@@ -617,13 +601,17 @@ export default defineComponent({
 				return
 			}
 
-			const availableColors = colors.filter(
-				(color) => !availableGates.value.some((gate) => gate.color === color),
-			)
-			const color =
-				availableColors.length > 0
-					? availableColors[Math.floor(Math.random() * availableColors.length)]
-					: createRandomColor()
+			let color = operatorColors[name as keyof typeof operatorColors] as string | undefined
+
+			if (!color) {
+				const availableColors = colors.filter(
+					(color) => !availableGates.value.some((gate) => !gate.deleted && gate.color === color),
+				)
+				color =
+					availableColors.length > 0
+						? availableColors[Math.floor(Math.random() * availableColors.length)]
+						: createRandomDarkColor()
+			}
 
 			const newGate = markRaw(
 				new Gate(
@@ -844,9 +832,26 @@ export default defineComponent({
 			return hasInput && hasOutput
 		})
 
-		const computedAvailableGates = computed(() =>
-			availableGates.value.filter(({ deleted }) => !deleted),
-		)
+		const computedAvailableGates = computed(() => {
+			let widths = 72
+
+			const gates = []
+
+			for (const gate of availableGates.value) {
+				if (!gate.deleted) {
+					gates.push({
+						key: gate.key,
+						name: gate.name,
+						width: gate.width,
+						x: widths,
+						gate,
+					})
+					widths += gate.width + 8
+				}
+			}
+
+			return gates
+		})
 
 		return {
 			inputs: calculatedInputs,
@@ -869,7 +874,7 @@ export default defineComponent({
 			createAndMove,
 			isCompleteGate,
 			saveGate,
-			verifyDeleteGate,
+			promptDeleteGate,
 			deleteGate,
 			gateToBeDeleted,
 		}
