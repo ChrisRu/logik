@@ -481,12 +481,15 @@ export default defineComponent({
 			}
 
 			if (drawingLine.value.pin.type.endsWith("output")) {
-				const activePinIndexes = connections.value
-					.filter(({ to }) => "chip" in to && isSameComponent(to.chip.component, chip.component))
-					.map(({ to }) => to.index)
+				const activePinIndexes = new Set<number>()
+				for (const { to } of connections.value) {
+					if ("chip" in to && isSameChip(to.chip, chip)) {
+						activePinIndexes.add(to.index)
+					}
+				}
 
-				if (activePinIndexes.length === chip.inputPins.length) {
-					if (activePinIndexes.length === 1) {
+				if (activePinIndexes.size === chip.inputPins.length) {
+					if (activePinIndexes.size === 1) {
 						endDraw(chip.inputPins[0].pin)
 					}
 
@@ -494,18 +497,21 @@ export default defineComponent({
 				}
 
 				for (const inputPin of chip.inputPins) {
-					if (!activePinIndexes.includes(inputPin.pin.index)) {
+					if (!activePinIndexes.has(inputPin.pin.index)) {
 						endDraw(inputPin.pin)
 						return
 					}
 				}
 			} else {
-				const activePinIndexes = connections.value
-					.filter(({ from }) => "chip" in from && from.chip.key === chip.key)
-					.map(({ from }) => from.index)
+				const activePinIndexes = new Set<number>()
+				for (const { from } of connections.value) {
+					if ("chip" in from && isSameChip(from.chip, chip)) {
+						activePinIndexes.add(from.index)
+					}
+				}
 
-				if (activePinIndexes.length === chip.outputPins.length) {
-					if (activePinIndexes.length === 1) {
+				if (activePinIndexes.size === chip.outputPins.length) {
+					if (activePinIndexes.size === 1) {
 						endDraw(chip.outputPins[0].pin)
 					}
 
@@ -513,7 +519,7 @@ export default defineComponent({
 				}
 
 				for (const outputPin of chip.outputPins) {
-					if (!activePinIndexes.includes(outputPin.pin.index)) {
+					if (!activePinIndexes.has(outputPin.pin.index)) {
 						endDraw(outputPin.pin)
 						return
 					}
