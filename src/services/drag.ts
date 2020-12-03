@@ -19,11 +19,11 @@ export function createDragFunction<T>({
 	padding = 0,
 }: {
 	ignoreWhen?: (event: MouseEvent | TouchEvent) => boolean
+	onStart?: (param: T) => void
+	onUpdate: (point: Point, param: T) => void
+	onStop?: (param: T) => boolean | void
 	withPointerOffset?: boolean
 	padding?: number
-	onUpdate: (point: Point, param: T) => void
-	onStart?: (param: T) => void
-	onStop?: (param: T) => void
 }) {
 	return function (mouseDownEvent: MouseEvent | TouchEvent, param: T): void {
 		const isTouchEvent = mouseDownEvent.type === "touchstart"
@@ -88,12 +88,12 @@ export function createDragFunction<T>({
 		const move = (moveEvent: MouseEvent | TouchEvent): void => getTouchPos(moveEvent, point)
 
 		const stop = (): void => {
-			isMoving = false
+			if (!onStop?.(param)) {
+				isMoving = false
 
-			onStop?.(param)
-
-			root.removeEventListener(moveEventName, move)
-			root.removeEventListener(stopEventName, stop)
+				root.removeEventListener(moveEventName, move)
+				root.removeEventListener(stopEventName, stop)
+			}
 		}
 
 		onStart?.(param)

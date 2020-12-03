@@ -254,6 +254,28 @@
 			</foreignObject>
 		</g>
 
+		<!-- CHIPS -->
+		<g v-if="placingChip" class="chip" style="opacity: 0.5">
+			<rect
+				:x="placingChip.x"
+				:y="placingChip.y"
+				:width="placingChip.width"
+				:height="placingChip.height"
+				:fill="placingChip.color"
+				class="draggable"
+				rx="3"
+				ry="3"
+			/>
+			<text
+				:x="placingChip.x + placingChip.width / 2"
+				:y="placingChip.y + placingChip.height / 2 + 1"
+				dominant-baseline="middle"
+				text-anchor="middle"
+			>
+				{{ placingChip.name }}
+			</text>
+		</g>
+
 		<!-- CONFIRM DELETE BUTTON -->
 		<foreignObject x="0" y="0" width="1080" height="720" v-if="gateToBeDeleted">
 			<modal
@@ -307,6 +329,19 @@ interface DrawingLine {
 	end: Point | null
 }
 
+interface PlacingGate {
+	gateKey: string
+	width: number
+	height: number
+	color: string
+	name: string
+	originalX: number
+	originalY: number
+	x: number
+	y: number
+	moved: boolean
+}
+
 export default defineComponent({
 	name: "Playground",
 	components: {
@@ -319,6 +354,7 @@ export default defineComponent({
 		const availableGates = shallowRef<Gate[]>(loadStoredGates())
 		const chips = ref<Chip[]>([])
 		const connections = shallowRef<Connection[]>([])
+		const placingChip = ref<PlacingGate | null>(null)
 		const drawingLine = ref<DrawingLine>({ pin: null, end: null })
 		const gateToBeDeleted = shallowRef<Gate | null>(null)
 
@@ -427,15 +463,94 @@ export default defineComponent({
 			},
 		})
 
-		function createAndMove(event: MouseEvent | TouchEvent, gate: typeof computedAvailableGates.value[0]): void {
-			const newChip: Chip = {
-				key: uuid.v4(),
-				x: gate.x,
-				y: 58,
-				gate: gate.gate,
+		const placeMove = createDragFunction<void>({
+			withPointerOffset: true,
+			onUpdate({ x, y }) {
+				if (placingChip.value) {
+					const maxLeft = 64
+					const maxTop = 50
+					const maxRight = 1080 - placingChip.value.width - 64
+					const maxBottom = 720 - placingChip.value.height
+
+					placingChip.value.x = x
+					placingChip.value.y = y
+
+					if (placingChip.value.originalX === -1) {
+						placingChip.value.originalX = x
+						placingChip.value.originalY = y
+					} else if (!placingChip.value.moved) {
+						if (
+							Math.abs(placingChip.value.originalX - x) > 10 ||
+							Math.abs(placingChip.value.originalY - y) > 10
+						) {
+							placingChip.value.moved = true
+						}
+					}
+				}
+			},
+			onStop() {
+				if (!placingChip.value) {
+					return
+				}
+
+				const gate = availableGates.value.find((x) => x.key === placingChip.value!.gateKey)
+				if (!gate) {
+					return
+				}
+
+				const availableGate = computedAvailableGates.value.find((x) => x.key === gate.key)
+				if (!availableGate) {
+					return
+				}
+
+				const { x, y } = placingChip.value
+				if (
+					!placingChip.value.moved &&
+					y > 0 &&
+					y < 64 &&
+					x > availableGate.x - availableGate.width / 2 &&
+					x < availableGate.x + availableGate.width / 2
+				) {
+					return true
+				}
+
+				const maxLeft = 64
+				const maxTop = 50
+				const maxRight = 1080 - gate.width - 64
+				const maxBottom = 720 - gate.height
+				if (maxLeft < x && maxTop < y && maxRight > x && maxBottom > y) {
+					const newChip: Chip = {
+						key: uuid.v4(),
+						x: x,
+						y: y,
+						gate,
+					}
+
+					chips.value = [...chips.value, newChip]
+				}
+
+				placingChip.value = null
+			},
+		})
+
+		function createAndMove(
+			event: MouseEvent | TouchEvent,
+			gate: typeof computedAvailableGates.value[0],
+		): void {
+			placingChip.value = {
+				gateKey: gate.gate.key,
+				width: gate.width,
+				height: gate.gate.height,
+				name: gate.name,
+				color: gate.gate.color,
+				moved: false,
+				originalX: -1,
+				originalY: -1,
+				x: -1,
+				y: -1,
 			}
 
-			chips.value = [...chips.value, newChip]
+			placeMove(event)
 		}
 
 		function endDrawOnNewPin(type: "global-input" | "global-output"): void {
@@ -871,6 +986,7 @@ export default defineComponent({
 			promptDeleteGate,
 			deleteGate,
 			gateToBeDeleted,
+			placingChip,
 		}
 	},
 })
